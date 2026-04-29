@@ -3,133 +3,46 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Daily Rounds</title>
+<title>Rounds</title>
 
-<!-- PWA: theme + Apple home screen -->
+<!-- PWA -->
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Daily Rounds">
+<meta name="apple-mobile-web-app-title" content="Rounds">
 <link id="pwa-apple-icon" rel="apple-touch-icon">
 <link id="pwa-manifest" rel="manifest">
 
 <script>
-// ── PWA bootstrap (single-file: manifest + icon + SW all via blob URLs) ──────
+// ── PWA bootstrap ─────────────────────────────────────────────
 (function () {
-  // 1. Generate app icon on a canvas
   const SIZE = 512;
   const c = document.createElement('canvas');
   c.width = c.height = SIZE;
   const ctx = c.getContext('2d');
-
-  // Rounded background
   const R = SIZE * 0.22;
   ctx.beginPath();
-  ctx.moveTo(R, 0); ctx.lineTo(SIZE - R, 0);
-  ctx.quadraticCurveTo(SIZE, 0, SIZE, R);
-  ctx.lineTo(SIZE, SIZE - R);
-  ctx.quadraticCurveTo(SIZE, SIZE, SIZE - R, SIZE);
-  ctx.lineTo(R, SIZE);
-  ctx.quadraticCurveTo(0, SIZE, 0, SIZE - R);
-  ctx.lineTo(0, R);
-  ctx.quadraticCurveTo(0, 0, R, 0);
-  ctx.closePath();
-  ctx.fillStyle = '#0f1117';
-  ctx.fill();
-
-  // Blue circle badge
-  ctx.beginPath();
-  ctx.arc(SIZE / 2, SIZE * 0.38, SIZE * 0.22, 0, Math.PI * 2);
-  ctx.fillStyle = '#4f8ef7';
-  ctx.fill();
-
-  // White checkmark
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = SIZE * 0.055;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  ctx.beginPath();
-  ctx.moveTo(SIZE * 0.36, SIZE * 0.38);
-  ctx.lineTo(SIZE * 0.46, SIZE * 0.49);
-  ctx.lineTo(SIZE * 0.64, SIZE * 0.29);
-  ctx.stroke();
-
-  // "ROUNDS" label
-  ctx.fillStyle = '#f0f2ff';
-  ctx.font = `bold ${SIZE * 0.115}px -apple-system, BlinkMacSystemFont, sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.fillText('ROUNDS', SIZE / 2, SIZE * 0.77);
-
+  ctx.moveTo(R,0);ctx.lineTo(SIZE-R,0);ctx.quadraticCurveTo(SIZE,0,SIZE,R);
+  ctx.lineTo(SIZE,SIZE-R);ctx.quadraticCurveTo(SIZE,SIZE,SIZE-R,SIZE);
+  ctx.lineTo(R,SIZE);ctx.quadraticCurveTo(0,SIZE,0,SIZE-R);
+  ctx.lineTo(0,R);ctx.quadraticCurveTo(0,0,R,0);ctx.closePath();
+  ctx.fillStyle='#0f1117';ctx.fill();
+  ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE*0.28,0,Math.PI*2);ctx.fillStyle='#4f8ef7';ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=SIZE*0.065;ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.beginPath();ctx.moveTo(SIZE*0.34,SIZE*0.50);ctx.lineTo(SIZE*0.46,SIZE*0.62);ctx.lineTo(SIZE*0.66,SIZE*0.38);ctx.stroke();
   const iconDataURL = c.toDataURL('image/png');
-
-  // 2. Apple touch icon
   document.getElementById('pwa-apple-icon').href = iconDataURL;
-
-  // 3. Inject manifest as blob URL
-  const manifest = {
-    name: 'Daily Rounds',
-    short_name: 'Rounds',
-    description: '343 Sansome — building rounds field app',
-    start_url: './',
-    scope: './',
-    display: 'standalone',
-    background_color: '#0f1117',
-    theme_color: '#4f8ef7',
-    orientation: 'portrait-primary',
-    icons: [
-      { src: iconDataURL, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
-      { src: iconDataURL, sizes: '512x512', type: 'image/png', purpose: 'any maskable' }
-    ]
-  };
-  const mBlob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+  const manifest = {name:'Rounds',short_name:'Rounds',description:'Building rounds field app',start_url:'./',scope:'./',display:'standalone',background_color:'#0f1117',theme_color:'#4f8ef7',orientation:'portrait-primary',icons:[{src:iconDataURL,sizes:'192x192',type:'image/png',purpose:'any maskable'},{src:iconDataURL,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+  const mBlob = new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
   document.getElementById('pwa-manifest').href = URL.createObjectURL(mBlob);
-
-  // 4. Register inline service worker (cache-first, offline-capable)
-  if ('serviceWorker' in navigator) {
-    const swSrc = `
-const CACHE_NAME = 'daily-rounds-v2';
-const PAGE_URL   = self.registration.scope;
-
-self.addEventListener('install', evt => {
-  evt.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.add(PAGE_URL))
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', evt => {
-  evt.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', evt => {
-  if (evt.request.method !== 'GET') return;
-  evt.respondWith(
-    caches.match(evt.request).then(cached => {
-      const network = fetch(evt.request).then(res => {
-        if (res && res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(evt.request, clone));
-        }
-        return res;
-      });
-      return cached || network;
-    })
-  );
-});
-    `;
-    const swBlob = new Blob([swSrc], { type: 'application/javascript' });
-    const swURL  = URL.createObjectURL(swBlob);
-    navigator.serviceWorker.register(swURL, { scope: './' })
-      .catch(() => { /* SW unavailable — app still works normally */ });
+  if('serviceWorker' in navigator){
+    const swSrc=`const CACHE='rounds-v3';self.addEventListener('install',evt=>{evt.waitUntil(caches.open(CACHE).then(cache=>cache.add(self.registration.scope)));self.skipWaiting();});self.addEventListener('activate',evt=>{evt.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))));self.clients.claim();});self.addEventListener('fetch',evt=>{if(evt.request.method!=='GET')return;evt.respondWith(fetch(evt.request).then(res=>{if(res&&res.ok){const clone=res.clone();caches.open(CACHE).then(cache=>cache.put(evt.request,clone));}return res;}).catch(()=>caches.match(evt.request)));});`;
+    navigator.serviceWorker.register(URL.createObjectURL(new Blob([swSrc],{type:'application/javascript'})),{scope:'./'}).catch(()=>{});
   }
 })();
 </script>
+
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#0f1117;--surf:#1c1f2e;--surf2:#252840;--acc:#4f8ef7;--ok:#2ecc71;--warn:#f39c12;--danger:#e74c3c;--txt:#f0f2ff;--txt2:#9ba3c7;--bdr:#2e3250;--r:14px;--inp:#12141f}
@@ -139,11 +52,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .hdr h1{font-size:17px;font-weight:700}.hdr .sub{font-size:11px;color:var(--txt2);margin-top:2px}
 .hdr-row{display:flex;align-items:center;justify-content:space-between}
 .back{background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer}
-.content{flex:1;padding:20px 18px;display:flex;flex-direction:column;gap:16px}
 .auth-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 24px;gap:24px}
-.auth-logo{text-align:center}
-.auth-logo h1{font-size:26px;font-weight:800;color:var(--acc)}
-.auth-logo p{color:var(--txt2);font-size:13px;margin-top:6px}
+.auth-logo{text-align:center}.auth-logo h1{font-size:26px;font-weight:800;color:var(--acc)}.auth-logo p{color:var(--txt2);font-size:13px;margin-top:6px}
 .auth-card{width:100%;background:var(--surf);border-radius:var(--r);padding:24px;border:1px solid var(--bdr);display:flex;flex-direction:column;gap:14px}
 .auth-card h2{font-size:16px;font-weight:700}
 .auth-field{display:flex;flex-direction:column;gap:6px}
@@ -151,19 +61,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .auth-field input{padding:13px 14px;background:var(--inp);border:2px solid var(--bdr);border-radius:10px;color:var(--txt);font-size:15px;outline:none;transition:border-color .15s}
 .auth-field input:focus{border-color:var(--acc)}
 .auth-btn{width:100%;padding:15px;background:var(--acc);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
-.auth-err{font-size:12px;color:var(--danger);text-align:center;display:none}
-.auth-err.show{display:block}
+.auth-err{font-size:12px;color:var(--danger);text-align:center;display:none}.auth-err.show{display:block}
 .logout-btn{background:none;border:none;color:var(--txt2);font-size:12px;cursor:pointer}
 .rounds-content{flex:1;padding:20px 18px;display:flex;flex-direction:column;gap:12px}
+.lbl{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .round-card{background:var(--surf);border-radius:var(--r);padding:18px;border:1px solid var(--bdr);cursor:pointer;display:flex;align-items:center;gap:14px;transition:all .15s}
 .round-card:active{border-color:var(--acc);background:rgba(79,142,247,.08)}
 .round-icon{width:44px;height:44px;border-radius:12px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
-.round-info{flex:1}
-.round-name{font-size:15px;font-weight:700}
-.round-desc{font-size:12px;color:var(--txt2);margin-top:3px}
+.round-info{flex:1}.round-name{font-size:15px;font-weight:700}.round-desc{font-size:12px;color:var(--txt2);margin-top:3px}
 .round-arrow{color:var(--txt2);font-size:18px}
 .no-rounds{text-align:center;color:var(--txt2);font-size:13px;padding:40px 20px;line-height:1.6}
-.lbl{font-size:11px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .prog-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
 .prog-bar{flex:1;height:4px;background:var(--bdr);border-radius:2px;overflow:hidden}
 .prog-fill{height:100%;background:var(--acc);border-radius:2px;transition:width .3s}
@@ -187,15 +94,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .num-inp:focus{border-color:var(--acc)}
 .num-unit{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:600;color:var(--txt2);pointer-events:none}
 .range-ind{font-size:11px;color:var(--txt2);text-align:center}
-.range-ind.ralert{color:var(--danger);font-weight:600}
-.range-ind.rwarn{color:var(--warn);font-weight:600}
-.ack-btn{width:100%;padding:14px;background:var(--warn);border:none;border-radius:11px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:none}
-.ack-btn.show{display:block}
+.range-ind.ralert{color:var(--danger);font-weight:600}.range-ind.rwarn{color:var(--warn);font-weight:600}
+.ack-btn{width:100%;padding:14px;background:var(--warn);border:none;border-radius:11px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:none}.ack-btn.show{display:block}
 .action-row{display:flex;gap:10px}
 .action-btn{flex:1;padding:11px;background:var(--inp);border:1px solid var(--bdr);border-radius:9px;color:var(--txt2);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
 .action-btn.active{border-color:var(--acc);color:var(--acc)}
-.notes-box{background:var(--inp);border:1px solid var(--bdr);border-radius:9px;padding:10px;display:none;position:relative}
-.notes-box.open{display:block}
+.notes-box{background:var(--inp);border:1px solid var(--bdr);border-radius:9px;padding:10px;display:none;position:relative}.notes-box.open{display:block}
 .notes-ta{width:100%;background:transparent;border:none;color:var(--txt);font-size:13px;resize:none;outline:none;min-height:70px;font-family:inherit;padding-right:28px}
 .notes-clear{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--txt2);font-size:16px;cursor:pointer}
 .photo-list{display:flex;flex-wrap:wrap;gap:7px}
@@ -203,14 +107,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .log-nav{display:flex;gap:10px;padding:14px 18px;background:var(--surf);border-top:1px solid var(--bdr);align-items:center}
 .nav-p{padding:14px 18px;background:var(--surf2);border:1px solid var(--bdr);border-radius:11px;color:var(--txt);font-size:15px;cursor:pointer;font-weight:600}
 .nav-jump{padding:14px;background:var(--surf2);border:1px solid var(--bdr);border-radius:11px;color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center}
-.nav-n{flex:1;padding:14px;background:var(--acc);border:none;border-radius:11px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
-.nav-n.done{background:var(--ok)}
-.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:none;flex-direction:column}
-.overlay.open{display:flex}
+.nav-n{flex:1;padding:14px;background:var(--acc);border:none;border-radius:11px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}.nav-n.done{background:var(--ok)}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:none;flex-direction:column}.overlay.open{display:flex}
 .jump-panel{background:var(--surf);border-radius:var(--r) var(--r) 0 0;margin-top:auto;max-height:78vh;display:flex;flex-direction:column}
 .jump-hdr{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
-.jump-hdr h2{font-size:15px;font-weight:700}
-.jump-close{background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer}
+.jump-hdr h2{font-size:15px;font-weight:700}.jump-close{background:none;border:none;color:var(--txt2);font-size:20px;cursor:pointer}
 .jump-list{overflow-y:auto;flex:1;padding:6px 0}
 .jump-sec{padding:8px 18px 3px;font-size:10px;color:var(--txt2);text-transform:uppercase;letter-spacing:.5px;font-weight:700}
 .jump-item{padding:13px 18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;border-bottom:1px solid rgba(46,50,80,.4)}
@@ -225,13 +126,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--surf2);border:1px solid var(--bdr);border-radius:50px;padding:10px 18px;font-size:12px;color:var(--txt);opacity:0;transition:all .3s;pointer-events:none;z-index:999;white-space:nowrap}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #photoInput{display:none}
+.loading-overlay{position:fixed;inset:0;background:var(--bg);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.loading-overlay.gone{display:none}
+.spinner{width:36px;height:36px;border:3px solid var(--bdr);border-top-color:var(--acc);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-overlay p{color:var(--txt2);font-size:13px}
 </style>
 </head>
 <body>
 
-<div id="s-login" class="screen active">
+<div class="loading-overlay" id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Loading Rounds...</p>
+</div>
+
+<div id="s-login" class="screen">
   <div class="auth-wrap">
-    <div class="auth-logo"><h1>Daily Rounds</h1><p>Sign in to continue</p></div>
+    <div class="auth-logo"><h1>Rounds</h1><p>Sign in to continue</p></div>
     <div class="auth-card">
       <h2>Sign In</h2>
       <div class="auth-field"><label>Username</label><input type="text" id="login-user" placeholder="Enter your username" autocomplete="username"></div>
@@ -257,7 +168,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 <div id="s-rounds" class="screen">
   <div class="hdr">
-    <div class="hdr-row"><h1 id="rounds-building">Daily Rounds</h1><button class="logout-btn" onclick="doLogout()">Sign Out</button></div>
+    <div class="hdr-row"><h1 id="rounds-building">Rounds</h1><button class="logout-btn" onclick="doLogout()">Sign Out</button></div>
     <div class="sub" id="rounds-user"></div>
   </div>
   <div class="rounds-content">
@@ -269,7 +180,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="s-log" class="screen">
   <div class="hdr">
     <div class="hdr-row">
-      <button class="back" onclick="goTo('rounds')" style="font-size:13px;color:var(--acc);background:none;border:none;cursor:pointer">← Rounds</button>
+      <button class="back" onclick="goTo('rounds')">← Rounds</button>
       <span id="tmpl-badge" style="font-size:11px;color:var(--txt2)"></span>
     </div>
     <div class="prog-row" style="margin-top:8px"><div class="prog-bar"><div class="prog-fill" id="pfill" style="width:0%"></div></div><div class="prog-txt" id="ptxt">1 of 1</div></div>
@@ -324,24 +235,53 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
+// ── UTILITIES ────────────────────────────────────────────────
 function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCodeAt(i);h|=0;}return h.toString(36);}
 function getUsers(){return JSON.parse(localStorage.getItem('lc_users')||'[]');}
 function saveUsers(u){localStorage.setItem('lc_users',JSON.stringify(u));}
-function getConfig(){const s=localStorage.getItem('lc_admin_config');if(!s)return getDefaultConfig();try{const c=JSON.parse(s);if(!c.templates)c.templates=[];return c;}catch(e){return getDefaultConfig();}}
+function getWebhookUrl(){return localStorage.getItem('lc_sheet_url')||'';}
 function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+id).classList.add('active');window.scrollTo(0,0);}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function fmtTime(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
 function fmtDate(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}
+function getPrev(lpId,tmplId){const h=JSON.parse(localStorage.getItem('lc_history')||'[]');for(const r of h){if(r.templateId===tmplId&&r.vals&&r.vals[lpId]!==undefined)return{v:r.vals[lpId],t:r.t1};}return null;}
 
-// ============================================================
-// AUTH
-// ============================================================
+// ── CONFIG — fetched from Sheet on every open ────────────────
+let APP_CONFIG = null;
+
+async function loadConfig(){
+  const url=getWebhookUrl();
+  if(url){
+    try{
+      const res=await fetch(url+'?action=getConfig',{cache:'no-store'});
+      const data=await res.json();
+      if(data.ok&&data.config){
+        APP_CONFIG=data.config;
+        localStorage.setItem('lc_admin_config',JSON.stringify(data.config));
+        // Sync webhook URL from config if present
+        if(data.config.webhookUrl)localStorage.setItem('lc_sheet_url',data.config.webhookUrl);
+        return;
+      }
+    }catch(e){/* offline */}
+  }
+  const cached=localStorage.getItem('lc_admin_config');
+  if(cached){try{APP_CONFIG=JSON.parse(cached);}catch(e){APP_CONFIG=getDefaultConfig();}}
+  else APP_CONFIG=getDefaultConfig();
+}
+
+function getConfig(){return APP_CONFIG||getDefaultConfig();}
+
+// ── BOOT ─────────────────────────────────────────────────────
+async function init(){
+  await loadConfig();
+  document.getElementById('loading-overlay').classList.add('gone');
+  checkSession();
+}
+
+// ── AUTH ─────────────────────────────────────────────────────
 function checkSession(){
   const users=getUsers();
-  if(users.length===0){
-    users.push({username:'Scott',email:'smorris@metroservices.com',pwHash:null,forceReset:false,isAdmin:true,assignedRounds:'all'});
-    saveUsers(users);
-  }
+  if(users.length===0){users.push({username:'Scott',email:'smorris@metroservices.com',pwHash:null,forceReset:false,isAdmin:true,assignedRounds:'all'});saveUsers(users);}
   const token=localStorage.getItem('lc_session');
   if(token){const user=users.find(u=>u.username===token);if(user){enterApp(user);return;}}
   goTo('login');
@@ -350,32 +290,25 @@ function checkSession(){
 function doLogin(){
   const username=document.getElementById('login-user').value.trim();
   const password=document.getElementById('login-pass').value;
-  const users=getUsers();
-  const user=users.find(u=>u.username===username);
+  const users=getUsers();const user=users.find(u=>u.username===username);
   const errEl=document.getElementById('login-err');
   if(!user){errEl.classList.add('show');return;}
   if(!user.pwHash||user.forceReset){localStorage.setItem('lc_pending_reset',username);goTo('setpw');return;}
   if(hashPw(password)!==user.pwHash){errEl.classList.add('show');return;}
-  errEl.classList.remove('show');
-  localStorage.setItem('lc_session',username);
-  enterApp(user);
+  errEl.classList.remove('show');localStorage.setItem('lc_session',username);enterApp(user);
 }
 
 function doSetPw(){
-  const pw1=document.getElementById('pw1').value;
-  const pw2=document.getElementById('pw2').value;
+  const pw1=document.getElementById('pw1').value,pw2=document.getElementById('pw2').value;
   const errEl=document.getElementById('pw-err');
   if(pw1.length<6){errEl.textContent='Password must be at least 6 characters';errEl.classList.add('show');return;}
   if(pw1!==pw2){errEl.textContent="Passwords don't match";errEl.classList.add('show');return;}
   errEl.classList.remove('show');
   const username=localStorage.getItem('lc_pending_reset');
-  const users=getUsers();
-  const user=users.find(u=>u.username===username);
+  const users=getUsers();const user=users.find(u=>u.username===username);
   if(user){user.pwHash=hashPw(pw1);user.forceReset=false;}
-  saveUsers(users);
-  localStorage.removeItem('lc_pending_reset');
-  localStorage.setItem('lc_session',username);
-  enterApp(user);
+  saveUsers(users);localStorage.removeItem('lc_pending_reset');
+  localStorage.setItem('lc_session',username);enterApp(user);
 }
 
 function doLogout(){localStorage.removeItem('lc_session');ST.currentUser=null;goTo('login');}
@@ -383,90 +316,62 @@ function doLogout(){localStorage.removeItem('lc_session');ST.currentUser=null;go
 function enterApp(user){
   ST.currentUser=user.username;
   const cfg=getConfig();
-  document.getElementById('rounds-building').textContent=cfg.building||'Daily Rounds';
+  document.getElementById('rounds-building').textContent=cfg.building||'Rounds';
   document.getElementById('rounds-user').textContent='Signed in as '+user.username;
-  renderRoundCards(user);
-  goTo('rounds');
+  renderRoundCards(user);goTo('rounds');
 }
 
-// ============================================================
-// ROUND SELECTION
-// ============================================================
+// ── ROUND SELECTION ──────────────────────────────────────────
 const ICONS=['🏢','⚡','🔥','💧','🌡️','🔧','⚙️','📊','🏭','🔌'];
 
 function getAssignedTemplates(user){
-  const cfg=getConfig();
-  const templates=(cfg.templates||[]).filter(t=>t.active);
+  const cfg=getConfig();const templates=(cfg.templates||[]).filter(t=>t.active);
   if(user.isAdmin||user.assignedRounds==='all')return templates;
   return templates.filter(t=>(user.assignedRounds||[]).includes(t.id));
 }
 
 function renderRoundCards(user){
   const templates=getAssignedTemplates(user);
-  const container=document.getElementById('round-cards');
-  container.innerHTML='';
-  if(templates.length===0){
-    container.innerHTML='<div class="no-rounds">No rounds assigned.<br>Contact your administrator.</div>';
-    return;
-  }
+  const container=document.getElementById('round-cards');container.innerHTML='';
+  if(!templates.length){container.innerHTML='<div class="no-rounds">No rounds assigned.<br>Contact your administrator.</div>';return;}
   templates.forEach((tmpl,i)=>{
-    const card=document.createElement('div');
-    card.className='round-card';
+    const card=document.createElement('div');card.className='round-card';
     card.innerHTML=`<div class="round-icon">${ICONS[i%ICONS.length]}</div><div class="round-info"><div class="round-name">${tmpl.name}</div><div class="round-desc">${tmpl.description||((tmpl.logs||[]).length+' log points')}</div></div><div class="round-arrow">→</div>`;
-    card.onclick=()=>selectTemplate(tmpl);
-    container.appendChild(card);
+    card.onclick=()=>selectTemplate(tmpl);container.appendChild(card);
   });
 }
 
 function selectTemplate(tmpl){
-  ST.selectedTemplate=tmpl;
-  ST.vals={};ST.notes={};ST.photos={};ST.idx=0;ST.editMap={};ST.acknowledged={};
+  ST.selectedTemplate=tmpl;ST.vals={};ST.notes={};ST.photos={};ST.idx=0;ST.editMap={};ST.acknowledged={};
   ST.rid='r'+Date.now();ST.t0=new Date().toISOString();
-  // Build active log points — apply per-log conditional logic
-  ST.active=buildActiveLog(tmpl,[]);
-  if(ST.active.length===0){showToast('No log points in this round');return;}
+  ST.active=buildActiveLog(tmpl,{});
+  if(!ST.active.length){showToast('No log points in this round');return;}
   document.getElementById('tmpl-badge').textContent=tmpl.name;
   render();goTo('log');
 }
 
-// ============================================================
-// CONDITIONAL LOGIC — core function
-// Per-log conditionals: each log can say "only show if logId X equals value Y"
-// We rebuild active list dynamically as values change
-// ============================================================
-function buildActiveLog(tmpl,currentVals){
+// ── CONDITIONAL LOGIC ────────────────────────────────────────
+function buildActiveLog(tmpl,vals){
   return(tmpl.logs||[]).filter(lp=>{
     if(!lp.condEnabled||!lp.condTrigger||!lp.condValue)return true;
-    // Find the trigger log's current value
-    const triggerVal=currentVals[lp.condTrigger];
-    if(triggerVal===undefined||triggerVal===null||triggerVal==='')return false;
-    return String(triggerVal)===String(lp.condValue);
+    const v=vals[lp.condTrigger];
+    if(v===undefined||v===null||v==='')return false;
+    return String(v)===String(lp.condValue);
   });
 }
 
 function rebuildActiveLog(){
-  // Called after each value is recorded to re-evaluate which logs are visible
-  const tmpl=ST.selectedTemplate;
-  const newActive=buildActiveLog(tmpl,ST.vals);
-  // Preserve current index position intelligently
-  const currentLogId=ST.active[ST.idx]?ST.active[ST.idx].id:null;
+  const tmpl=ST.selectedTemplate;const newActive=buildActiveLog(tmpl,ST.vals);
+  const curId=ST.active[ST.idx]?ST.active[ST.idx].id:null;
   ST.active=newActive;
-  // Try to find where current log is in new active list
-  if(currentLogId){
-    const newIdx=newActive.findIndex(l=>l.id===currentLogId);
-    if(newIdx!==-1)ST.idx=newIdx;
-    else if(ST.idx>=newActive.length)ST.idx=Math.max(0,newActive.length-1);
-  }
+  if(curId){const ni=newActive.findIndex(l=>l.id===curId);if(ni!==-1)ST.idx=ni;else if(ST.idx>=newActive.length)ST.idx=Math.max(0,newActive.length-1);}
 }
 
-// ============================================================
-// STATE
-// ============================================================
-let ST={currentUser:null,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{}};
+// ── STATE ────────────────────────────────────────────────────
+let ST={currentUser:null,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{},_photoTarget:null};
 
 function render(){
-  const total=ST.active.length;
-  if(total===0){completeRound();return;}
+  const total=ST.active.length;if(!total){completeRound();return;}
   const lp=ST.active[ST.idx];
   document.getElementById('pfill').style.width=((ST.idx/total)*100)+'%';
   document.getElementById('ptxt').textContent=(ST.idx+1)+' of '+total;
@@ -481,20 +386,14 @@ function render(){
   if(lp.type==='status'){
     const opts=lp.opts||[];const n=opts.length,cls=n<=2?'c2':n===3?'c3':'c4';
     const g=document.createElement('div');g.className='s-grid '+cls;
-    opts.forEach((o,i)=>{
+    opts.forEach(o=>{
       const label=typeof o==='object'?o.label:o,style=typeof o==='object'?o.style:'';
       const b=document.createElement('button');b.className='s-opt '+style;b.textContent=label;
       if(ST.vals[lp.id]===label)b.classList.add('sel');
-      b.onclick=()=>{
-        g.querySelectorAll('.s-opt').forEach(x=>x.classList.remove('sel'));
-        b.classList.add('sel');
-        recordVal(lp.id,label);
-        // Rebuild active log after status change — may affect conditionals
-        rebuildActiveLog();
-      };
+      b.onclick=()=>{g.querySelectorAll('.s-opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');recordVal(lp.id,label);rebuildActiveLog();};
       g.appendChild(b);
     });ia.appendChild(g);
-  } else {
+  }else{
     const wrap=document.createElement('div');wrap.className='num-wrap';
     const inp=document.createElement('input');inp.type='number';inp.inputMode='decimal';inp.className='num-inp';inp.placeholder='—';
     if(ST.vals[lp.id]!==undefined)inp.value=ST.vals[lp.id];
@@ -519,8 +418,7 @@ function render(){
 function pf(v){return v!==undefined&&v!==''?parseFloat(v):NaN;}
 
 function checkLimits(lp,v){
-  if(isNaN(v))return;
-  updateLimitDisplay(lp,v);
+  if(isNaN(v))return;updateLimitDisplay(lp,v);
   const aLo=pf(lp.alertLo),aHi=pf(lp.alertHi);
   if((!isNaN(aLo)&&v<aLo)||(!isNaN(aHi)&&v>aHi)){
     const al=JSON.parse(localStorage.getItem('lc_alerts')||'[]');
@@ -535,8 +433,7 @@ function updateLimitDisplay(lp,v){
   const ri=document.getElementById('range-ind'),ackBtn=document.getElementById('ack-btn');
   ri.className='range-ind';ri.textContent='';ackBtn.className='ack-btn';
   const wLo=pf(lp.warnLo),wHi=pf(lp.warnHi),aLo=pf(lp.alertLo),aHi=pf(lp.alertHi);
-  const hasLimits=!isNaN(wLo)||!isNaN(wHi)||!isNaN(aLo)||!isNaN(aHi);
-  if(!hasLimits)return;
+  const hasLimits=!isNaN(wLo)||!isNaN(wHi)||!isNaN(aLo)||!isNaN(aHi);if(!hasLimits)return;
   const num=parseFloat(v);
   const loDisplay=!isNaN(wLo)?wLo:(!isNaN(aLo)?aLo:'—');
   const hiDisplay=!isNaN(wHi)?wHi:(!isNaN(aHi)?aHi:'—');
@@ -549,22 +446,22 @@ function updateLimitDisplay(lp,v){
 }
 
 function acknowledge(){ST.acknowledged[ST.active[ST.idx].id]=true;document.getElementById('ack-btn').className='ack-btn';}
-
-function recordVal(id,v){
-  const wasSet=ST.vals[id]!==undefined;
-  ST.vals[id]=v;
-  if(wasSet)ST.editMap[id]={by:ST.currentUser,at:new Date().toISOString()};
-}
-
+function recordVal(id,v){const wasSet=ST.vals[id]!==undefined;ST.vals[id]=v;if(wasSet)ST.editMap[id]={by:ST.currentUser,at:new Date().toISOString()};}
 function toggleNotes(){const nb=document.getElementById('notes-box'),btn=document.getElementById('notes-btn');const open=nb.classList.toggle('open');btn.className='action-btn'+(open?' active':'');if(open)setTimeout(()=>document.getElementById('notes-ta').focus(),50);}
 function saveNote(){if(ST.active[ST.idx])ST.notes[ST.active[ST.idx].id]=document.getElementById('notes-ta').value;}
 function clearNotes(){if(!ST.active[ST.idx])return;const id=ST.active[ST.idx].id;ST.notes[id]='';document.getElementById('notes-ta').value='';document.getElementById('notes-box').className='notes-box';document.getElementById('notes-btn').className='action-btn';}
 function triggerPhoto(){if(ST.active[ST.idx])ST._photoTarget=ST.active[ST.idx].id;document.getElementById('photoInput').click();}
+
 function handlePhotos(e){
   const id=ST._photoTarget;if(!id)return;if(!ST.photos[id])ST.photos[id]=[];
-  Array.from(e.target.files).slice(0,5-ST.photos[id].length).forEach(f=>{const r=new FileReader();r.onload=ev=>{ST.photos[id].push({data:ev.target.result,name:f.name,t:new Date().toISOString()});renderPhotos(id);};r.readAsDataURL(f);});
+  Array.from(e.target.files).slice(0,5-ST.photos[id].length).forEach(f=>{
+    const r=new FileReader();
+    r.onload=ev=>{ST.photos[id].push({data:ev.target.result,name:f.name,type:f.type,t:new Date().toISOString()});renderPhotos(id);};
+    r.readAsDataURL(f);
+  });
   e.target.value='';
 }
+
 function renderPhotos(id){
   const pl=document.getElementById('photo-list');pl.innerHTML='';
   const photos=ST.photos[id]||[];
@@ -573,12 +470,10 @@ function renderPhotos(id){
 }
 
 function nextLog(){
-  const lp=ST.active[ST.idx];
-  const v=parseFloat(ST.vals[lp.id]);
+  const lp=ST.active[ST.idx];const v=parseFloat(ST.vals[lp.id]);
   if(!isNaN(v)&&!ST.acknowledged[lp.id]){
     const wLo=pf(lp.warnLo),wHi=pf(lp.warnHi),aLo=pf(lp.alertLo),aHi=pf(lp.alertHi);
-    const oor=(!isNaN(aLo)&&v<aLo)||(!isNaN(aHi)&&v>aHi)||(!isNaN(wLo)&&v<wLo)||(!isNaN(wHi)&&v>wHi);
-    if(oor){showToast('Please acknowledge the out-of-range reading first');return;}
+    if((!isNaN(aLo)&&v<aLo)||(!isNaN(aHi)&&v>aHi)||(!isNaN(wLo)&&v<wLo)||(!isNaN(wHi)&&v>wHi)){showToast('Please acknowledge the out-of-range reading first');return;}
   }
   if(ST.idx===ST.active.length-1){completeRound();return;}
   ST.idx++;render();window.scrollTo(0,0);
@@ -603,128 +498,92 @@ function closeJump(){document.getElementById('jump-overlay').classList.remove('o
 function closeJumpOutside(e){if(e.target===document.getElementById('jump-overlay'))closeJump();}
 
 function showHist(){
-  const lp=ST.active[ST.idx];
-  const h=JSON.parse(localStorage.getItem('lc_history')||'[]');
-  const tmplId=ST.selectedTemplate.id;
+  const lp=ST.active[ST.idx];const h=JSON.parse(localStorage.getItem('lc_history')||'[]');const tmplId=ST.selectedTemplate.id;
   const rows=h.filter(r=>r.templateId===tmplId&&r.vals&&r.vals[lp.id]!==undefined).slice(0,5)
     .map(r=>{let line=fmtDate(r.t1)+': '+r.vals[lp.id]+(lp.unit?' '+lp.unit:'');if(r.editMap&&r.editMap[lp.id])line+=' [edited by '+r.editMap[lp.id].by+']';return line;}).join('\n');
   alert('Recent — '+lp.name+':\n\n'+(rows||'No history yet'));
 }
 
+// ── COMPLETE ROUND ───────────────────────────────────────────
 function completeRound(){
-  const tmpl=ST.selectedTemplate;
+  const tmpl=ST.selectedTemplate;const cfg=getConfig();
   const alerts=JSON.parse(localStorage.getItem('lc_alerts')||'[]').filter(a=>a.rid===ST.rid);
-  const data={rid:ST.rid,eng:ST.currentUser,t0:ST.t0,t1:new Date().toISOString(),day:new Date().toDateString(),templateId:tmpl.id,templateName:tmpl.name,sheetTab:tmpl.sheetTab||tmpl.name,vals:ST.vals,notes:ST.notes,photos:ST.photos,editMap:ST.editMap,alerts,synced:false};
+  const data={rid:ST.rid,eng:ST.currentUser,t0:ST.t0,t1:new Date().toISOString(),day:new Date().toDateString(),templateId:tmpl.id,templateName:tmpl.name,sheetTab:tmpl.sheetTab||tmpl.name,building:cfg.building||'Rounds',vals:ST.vals,notes:ST.notes,photos:ST.photos,editMap:ST.editMap,alerts,synced:false};
   const h=JSON.parse(localStorage.getItem('lc_history')||'[]');h.unshift(data);localStorage.setItem('lc_history',JSON.stringify(h.slice(0,200)));
   goTo('done');
   const logged=Object.keys(ST.vals).length;
-  document.getElementById('done-sum').textContent=logged+' readings by '+ST.currentUser+(alerts.length>0?' · '+alerts.length+' alert'+(alerts.length>1?'s':''):'');
+  document.getElementById('done-sum').textContent=logged+' readings by '+ST.currentUser+(alerts.length?' · '+alerts.length+' alert'+(alerts.length>1?'s':''):'');
   const ss=document.getElementById('sync-st');
-  const SHEET_URL=localStorage.getItem('lc_sheet_url')||'';
-  if(navigator.onLine&&SHEET_URL){syncSheet(data,ss);}else{ss.className='sync-st pend';ss.textContent='Offline — saved locally, will sync when connected';}
+  if(navigator.onLine&&getWebhookUrl())syncRound(data,ss);
+  else{ss.className='sync-st pend';ss.textContent='Offline — saved locally, will sync when connected';}
 }
 
-function syncSheet(data,el){
-  const SHEET_URL=localStorage.getItem('lc_sheet_url')||'';
-  if(!SHEET_URL){if(el){el.className='sync-st pend';el.textContent='Google Sheets not configured — data saved locally';}return;}
-  fetch(SHEET_URL,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
-    .then(()=>{data.synced=true;if(el){el.className='sync-st synced';el.textContent='Synced to Google Sheets — '+data.sheetTab+' tab';}})
-    .catch(()=>{if(el){el.className='sync-st pend';el.textContent='Sync failed — saved locally';}});
+async function syncRound(data,el){
+  const WEBHOOK=getWebhookUrl();
+  if(!WEBHOOK){if(el){el.className='sync-st pend';el.textContent='Webhook not configured — data saved locally';}return;}
+  el.textContent='Syncing...';
+  try{
+    // Upload photos
+    const photoLinks={};
+    for(const [lpId,photos] of Object.entries(data.photos||{})){
+      if(!photos||!photos.length)continue;
+      const lp=ST.selectedTemplate.logs.find(l=>l.id===lpId);
+      photoLinks[lpId]=[];
+      for(const photo of photos){
+        const base64=photo.data.split(',')[1];
+        const res=await fetch(WEBHOOK,{method:'POST',body:JSON.stringify({action:'uploadPhoto',base64Data:base64,mimeType:photo.type||'image/jpeg',logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:photo.t||data.t1,building:data.building})});
+        const result=await res.json();
+        if(result.ok)photoLinks[lpId].push({url:result.fileUrl,label:result.shortLabel});
+      }
+    }
+    // Upload notes as Google Docs
+    const noteLinks={};
+    for(const [lpId,noteText] of Object.entries(data.notes||{})){
+      if(!noteText||!noteText.trim())continue;
+      const lp=ST.selectedTemplate.logs.find(l=>l.id===lpId);
+      const res=await fetch(WEBHOOK,{method:'POST',body:JSON.stringify({action:'createNote',logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:data.t1,building:data.building,notesText:noteText})});
+      const result=await res.json();
+      if(result.ok)noteLinks[lpId]={url:result.fileUrl,label:result.shortLabel};
+    }
+    // Build entries
+    const entries=(ST.selectedTemplate.logs||[]).map(lp=>{
+      const photos=photoLinks[lp.id]||[];const note=noteLinks[lp.id];
+      return{name:lp.name,value:data.vals[lp.id]!==undefined?data.vals[lp.id]:'',unit:lp.unit||'',alertLo:lp.alertLo||'',alertHi:lp.alertHi||'',hasPhoto:photos.length>0,photoLink:photos.map(p=>`=HYPERLINK("${p.url}","${p.label}")`).join(', '),hasNotes:!!note,notesLink:note?`=HYPERLINK("${note.url}","${note.label}")`:'',};
+    });
+    // Submit round
+    const roundRes=await fetch(WEBHOOK,{method:'POST',body:JSON.stringify({action:'submitRound',templateName:data.templateName,sheetTab:data.sheetTab,engineer:data.eng,timestamp:data.t1,building:data.building,entries})});
+    const result=await roundRes.json();
+    if(result.ok){
+      if(el){el.className='sync-st synced';el.textContent='✓ Synced to Google Sheets';}
+      const h=JSON.parse(localStorage.getItem('lc_history')||'[]');const rec=h.find(r=>r.rid===data.rid);if(rec)rec.synced=true;localStorage.setItem('lc_history',JSON.stringify(h));
+    }else throw new Error(result.error||'Sync failed');
+  }catch(err){
+    if(el){el.className='sync-st pend';el.textContent='Sync failed — saved locally';}
+    console.error('Sync error:',err);
+  }
 }
 
 function resetRound(){
-  ST={...ST,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{}};
-  const users=getUsers();const user=users.find(u=>u.username===ST.currentUser);
-  if(user)renderRoundCards(user);
-  goTo('rounds');
+  ST.selectedTemplate=null;ST.vals={};ST.notes={};ST.photos={};ST.idx=0;
+  const user=getUsers().find(u=>u.username===ST.currentUser);
+  if(user)loadConfig().then(()=>enterApp(user));else goTo('rounds');
 }
 
-function getPrev(id,templateId){
-  const h=JSON.parse(localStorage.getItem('lc_history')||'[]');
-  for(const r of h){if(r.templateId===templateId&&r.vals&&r.vals[id]!==undefined)return{v:r.vals[id],t:r.t1};}
-  return null;
-}
-
-window.addEventListener('online',()=>{
-  const h=JSON.parse(localStorage.getItem('lc_history')||'[]');
-  const u=h.filter(r=>!r.synced);
-  if(u.length>0){u.forEach(r=>syncSheet(r,null));showToast('Syncing '+u.length+' pending round(s)');}
-});
-
+// ── DEFAULT CONFIG ───────────────────────────────────────────
 function getDefaultConfig(){
-  return{building:'343 Sansome St.',webhook:'',alertEmails:['smorris@metroservices.com'],templates:[{id:'tmpl_daily',name:'Daily Rounds',description:'Standard daily building rounds',sheetTab:'Daily Rounds',active:true,logs:[
-    {id:'fcr_alarms',sec:'Fire Control Room',name:'Alarms',desc:'Check panel for any active alarms',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_troubles',sec:'Fire Control Room',name:'Troubles',desc:'Check panel for trouble conditions',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_supervisory',sec:'Fire Control Room',name:'Supervisory',desc:'Check supervisory conditions',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_stairwell',sec:'Fire Control Room',name:'Stairwell Door Locks',desc:'Verify all stairwell doors secured',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Fault',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_printer',sec:'Fire Control Room',name:'Printer Status',desc:'Check panel printer',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Fault',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_fan',sec:'Fire Control Room',name:'Fan-Damper Panel',desc:'Verify fan-damper panel status',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Fault',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_online',sec:'Fire Control Room',name:'Online / Offline',desc:'Panel network connectivity status',type:'status',unit:'',cumulative:false,opts:[{label:'Online',style:'ok'},{label:'Offline',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'fcr_co2',sec:'Fire Control Room',name:'CO2 Alarms (1-13)',desc:'Check all 13 CO2 detector zones',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_status',sec:'Diesel Fire Pump',name:'On/Off/Auto Status',desc:'Controller selector switch position',type:'status',unit:'',cumulative:false,opts:[{label:'Auto',style:'ok'},{label:'On',style:'warn'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_bat1',sec:'Diesel Fire Pump',name:'Battery #1 VDC',desc:'Normal range: 12–14 VDC',type:'numeric',unit:'VDC',cumulative:false,opts:[],warnLo:'11.5',warnHi:'14.5',alertLo:'11',alertHi:'15',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_bat2',sec:'Diesel Fire Pump',name:'Battery #2 VDC',desc:'Normal range: 12–14 VDC',type:'numeric',unit:'VDC',cumulative:false,opts:[],warnLo:'11.5',warnHi:'14.5',alertLo:'11',alertHi:'15',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_stand',sec:'Diesel Fire Pump',name:'Standpipe Pressure',desc:'Read gauge on pump panel',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'195',warnHi:'220',alertLo:'180',alertHi:'240',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_water',sec:'Diesel Fire Pump',name:'Water Level',desc:'Check sight glass',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Low',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_oil',sec:'Diesel Fire Pump',name:'Oil Level',desc:'Check dipstick',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Low',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_hours',sec:'Diesel Fire Pump',name:'Hours',desc:'Cumulative engine hours',type:'numeric',unit:'hrs',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_crank',sec:'Diesel Fire Pump',name:'Crankcase Heater',desc:'Read thermometer on crankcase',type:'numeric',unit:'°F',cumulative:false,opts:[],warnLo:'120',warnHi:'150',alertLo:'100',alertHi:'170',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dfp_fuel',sec:'Diesel Fire Pump',name:'Day Tank Fuel Level',desc:'Read sight glass on day tank',type:'status',unit:'',cumulative:false,opts:[{label:'7/8',style:'ok'},{label:'3/4',style:'ok'},{label:'1/2',style:'warn'},{label:'1/4',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'efp_status',sec:'Electric Fire Pump',name:'Status / Auto',desc:'Controller selector switch position',type:'status',unit:'',cumulative:false,opts:[{label:'Auto',style:'ok'},{label:'On',style:'warn'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'jp_status',sec:'Jockey Pump',name:'Status (Auto)',desc:'Verify jockey pump in auto',type:'status',unit:'',cumulative:false,opts:[{label:'Auto',style:'ok'},{label:'On',style:'warn'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'jp_suc',sec:'Jockey Pump',name:'Press. Diff — Suction',desc:'Suction side pressure gauge',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'60',warnHi:'85',alertLo:'50',alertHi:'95',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'jp_dis',sec:'Jockey Pump',name:'Press. Diff — Discharge',desc:'Discharge side pressure gauge',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'175',warnHi:'210',alertLo:'160',alertHi:'225',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dw_status',sec:'Domestic Water',name:'Status On/Auto',desc:'Lead pump controller position',type:'status',unit:'',cumulative:false,opts:[{label:'Hand-2',style:'ok'},{label:'Auto',style:'ok'},{label:'Off',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dw_lead',sec:'Domestic Water',name:'Lead Pump #',desc:'Which pump is currently lead',type:'status',unit:'',cumulative:false,opts:[{label:'#1',style:''},{label:'#2',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dw_freq',sec:'Domestic Water',name:'Pump Frequency',desc:'Read VFD display',type:'numeric',unit:'Hz',cumulative:false,opts:[],warnLo:'40',warnHi:'60',alertLo:'30',alertHi:'65',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dw_amp',sec:'Domestic Water',name:'Pump Amperage',desc:'Read VFD display or panel meter',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dw_suc',sec:'Domestic Water',name:'Suction Pressure',desc:'Gauge left of pump — normal 62 PSI',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'55',warnHi:'70',alertLo:'45',alertHi:'80',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'dw_dis',sec:'Domestic Water',name:'Discharge Pressure',desc:'Gauge right of pump — normal 132 PSI',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'120',warnHi:'140',alertLo:'110',alertHi:'155',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'sump',sec:'Sewer / Storm',name:'Sump Pumps',desc:'Check pit level and pump operation',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'#1 Off',style:'warn'},{label:'#2 Off',style:'warn'},{label:'Both Off',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'storm',sec:'Sewer / Storm',name:'Storm Pumps',desc:'Check storm ejection pump status',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Fault',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'h2o1',sec:'Meters',name:'H2O Meter #1',desc:'Cumulative gallons — read totalizer',type:'numeric',unit:'gal',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'h2o2',sec:'Meters',name:'H2O Meter #2',desc:'Cumulative gallons — read totalizer',type:'numeric',unit:'gal',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ada',sec:'ADA / Elevator',name:'ADA Lift Inspection',desc:'Test operation and check for faults',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Down',style:'alarm'},{label:'Service',style:'warn'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ct_fc',sec:'Cooling Towers',name:'Free Cooling Status',desc:'Heat exchanger bypass valve position',type:'status',unit:'',cumulative:false,opts:[{label:'On',style:'ok'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ct_hx1',sec:'Cooling Towers',name:'Heat Exchanger Temp',desc:'Supply temp — read thermometer on HX',type:'numeric',unit:'°F',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:true,condTrigger:'ct_fc',condValue:'On'},
-    {id:'ct_chwp',sec:'Cooling Towers',name:'CHWP (#1 or #2)',desc:'Which chilled water pump is running',type:'status',unit:'',cumulative:false,opts:[{label:'#1',style:''},{label:'#2',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:true,condTrigger:'ct_fc',condValue:'On'},
-    {id:'ct_chwp_dp',sec:'Cooling Towers',name:'CHWP Delta-P',desc:'Differential pressure gauge — normal 95–125',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'95',warnHi:'125',alertLo:'80',alertHi:'140',condEnabled:true,condTrigger:'ct_fc',condValue:'On'},
-    {id:'ct_ctwp',sec:'Cooling Towers',name:'CTWP (#1 or #2)',desc:'Which condenser water pump is running',type:'status',unit:'',cumulative:false,opts:[{label:'#1',style:''},{label:'#2',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:true,condTrigger:'ct_fc',condValue:'On'},
-    {id:'ct_ctwp_dp',sec:'Cooling Towers',name:'CTWP Delta-P',desc:'Differential pressure gauge — normal 85–130',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'85',warnHi:'130',alertLo:'70',alertHi:'145',condEnabled:true,condTrigger:'ct_fc',condValue:'On'},
-    {id:'ct_hx2',sec:'Cooling Towers',name:'Heat Exchanger Return Temp',desc:'Return temp — read thermometer on HX',type:'numeric',unit:'°F',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:true,condTrigger:'ct_fc',condValue:'On'},
-    {id:'ct_tds',sec:'Cooling Towers',name:'Tower TDS',desc:'Read TDS meter at tower basin',type:'numeric',unit:'ppm',cumulative:false,opts:[],warnLo:'',warnHi:'1200',alertLo:'',alertHi:'1500',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ct_bleed',sec:'Cooling Towers',name:'Bleed Water Meter',desc:'Cumulative bleed gallons',type:'numeric',unit:'gal',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ct_makeup',sec:'Cooling Towers',name:'Make-Up Meter',desc:'Cumulative make-up water gallons',type:'numeric',unit:'gal',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a3_a',sec:'3,000 Amp Main',name:'Phase-A',desc:'Read Phase A ammeter on main panel',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a3_b',sec:'3,000 Amp Main',name:'Phase-B',desc:'Read Phase B ammeter on main panel',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a3_c',sec:'3,000 Amp Main',name:'Phase-C',desc:'Read Phase C ammeter on main panel',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a3_dig',sec:'3,000 Amp Main',name:'Digital',desc:'Read digital kWh meter display',type:'numeric',unit:'kWh',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a3_ana',sec:'3,000 Amp Main',name:'Analog',desc:'Read analog kWh meter display',type:'numeric',unit:'kWh',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a2_a',sec:'2,000 Amp Main',name:'Phase-A',desc:'Read Phase A ammeter',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a2_b',sec:'2,000 Amp Main',name:'Phase-B',desc:'Read Phase B ammeter',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a2_c',sec:'2,000 Amp Main',name:'Phase-C',desc:'Read Phase C ammeter',type:'numeric',unit:'A',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a2_dig',sec:'2,000 Amp Main',name:'Digital — Difference',desc:'Read digital meter difference display',type:'numeric',unit:'kWh',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'a2_ana',sec:'2,000 Amp Main',name:'Analog — Difference',desc:'Read analog meter difference display',type:'numeric',unit:'kWh',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_status',sec:'Emergency Generator',name:'On/Off/Auto Status',desc:'Controller selector switch position',type:'status',unit:'',cumulative:false,opts:[{label:'Auto',style:'ok'},{label:'On',style:'warn'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_bat',sec:'Emergency Generator',name:'Battery #1 28VDC',desc:'Normal range: 26–30 VDC',type:'numeric',unit:'VDC',cumulative:false,opts:[],warnLo:'26',warnHi:'30',alertLo:'24',alertHi:'32',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_water',sec:'Emergency Generator',name:'Water Level',desc:'Check coolant sight glass',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Low',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_oil',sec:'Emergency Generator',name:'Oil Level',desc:'Check dipstick',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Low',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_hrs',sec:'Emergency Generator',name:'Hours',desc:'Cumulative engine hours',type:'numeric',unit:'hrs',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_crank',sec:'Emergency Generator',name:'Crankcase Heater',desc:'Read thermometer on crankcase',type:'numeric',unit:'°F',cumulative:false,opts:[],warnLo:'120',warnHi:'150',alertLo:'100',alertHi:'170',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'gen_fuel',sec:'Emergency Generator',name:'Day Tank Fuel Level',desc:'Read sight glass on day tank',type:'status',unit:'',cumulative:false,opts:[{label:'7/8',style:'ok'},{label:'3/4',style:'ok'},{label:'1/2',style:'warn'},{label:'1/4',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ch_hrs',sec:'Chiller',name:'Chiller Hours',desc:'Cumulative run hours',type:'numeric',unit:'hrs',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ch_starts',sec:'Chiller',name:'Chiller Starts',desc:'Cumulative starts',type:'numeric',unit:'',cumulative:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ch_oil',sec:'Chiller',name:'Chiller Oil Temp',desc:'Read oil temp on chiller display',type:'numeric',unit:'°F',cumulative:false,opts:[],warnLo:'120',warnHi:'145',alertLo:'110',alertHi:'160',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ch_cond',sec:'Chiller',name:'Chiller Cond. #',desc:'Read condenser number on chiller display',type:'numeric',unit:'',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'ch_hal',sec:'Chiller',name:'Halogen Monitor 1-4',desc:'Check all 4 halogen detector indicators',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Off',style:''},{label:'Alarm',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'elev_dn',sec:'Elevator Mach Room',name:'Down Elevators',desc:'Check elevator status board',type:'status',unit:'',cumulative:false,opts:[{label:'None',style:'ok'},{label:'#1',style:'warn'},{label:'#2',style:'warn'},{label:'#3',style:'warn'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'elev_sup',sec:'Elevator Mach Room',name:'PAC 1-2 Supply Temp',desc:'Read supply air thermometer on PAC unit',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'High',style:'warn'},{label:'Fault',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'elev_ret',sec:'Elevator Mach Room',name:'PAC 1-2 Return Temp',desc:'Read return air thermometer on PAC unit',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'High',style:'warn'},{label:'Fault',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-    {id:'elev_pump',sec:'Elevator Mach Room',name:'Elev Cond. Pump #20-25',desc:'Read pressure gauge on condenser pump',type:'numeric',unit:'PSI',cumulative:false,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-  ]}]};
+  return{building:'Rounds',webhookUrl:'',alertEmails:[],templates:[{
+    id:'daily',name:'Daily Rounds',description:'Full building inspection',active:true,sheetTab:'Daily Rounds',
+    logs:[
+      {id:'fcr_alarms',sec:'Fire Control Room',name:'Alarms',desc:'Check panel for any active alarms',type:'status',unit:'',opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
+      {id:'fcr_troubles',sec:'Fire Control Room',name:'Troubles',desc:'Check panel for trouble conditions',type:'status',unit:'',opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
+      {id:'dw_lead',sec:'Domestic Water',name:'Lead Pump',desc:'Which pump is currently lead',type:'status',unit:'',opts:[{label:'#1',style:''},{label:'#2',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
+      {id:'dw_freq',sec:'Domestic Water',name:'Pump Frequency',desc:'Read VFD display',type:'numeric',unit:'Hz',opts:[],warnLo:'40',warnHi:'60',alertLo:'30',alertHi:'65',condEnabled:false,condTrigger:'',condValue:''},
+      {id:'gen_status',sec:'Emergency Generator',name:'Generator Status',desc:'Controller selector switch position',type:'status',unit:'',opts:[{label:'Auto',style:'ok'},{label:'On',style:'warn'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
+    ]
+  }]};
 }
 
-checkSession();
+init();
 </script>
 </body>
 </html>
