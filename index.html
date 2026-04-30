@@ -530,6 +530,15 @@ function completeRound(){
   else{ss.className='sync-st pend';ss.textContent='Offline — saved locally, will sync when connected';}
 }
 
+async function webhookGet(action, data){
+  const WEBHOOK=getWebhookUrl();
+  if(!WEBHOOK)return{ok:false,error:'No webhook'};
+  let url=WEBHOOK+'?action='+action;
+  if(data)url+='&data='+encodeURIComponent(JSON.stringify(data));
+  const res=await fetch(url,{cache:'no-store'});
+  return res.json();
+}
+
 async function syncRound(data,el){
   const WEBHOOK=getWebhookUrl();
   if(!WEBHOOK){if(el){el.className='sync-st pend';el.textContent='Webhook not configured — data saved locally';}return;}
@@ -543,18 +552,16 @@ async function syncRound(data,el){
       photoLinks[lpId]=[];
       for(const photo of photos){
         const base64=photo.data.split(',')[1];
-        const res=await fetch(WEBHOOK,{method:'POST',body:JSON.stringify({action:'uploadPhoto',base64Data:base64,mimeType:photo.type||'image/jpeg',logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:photo.t||data.t1,building:data.building})});
-        const result=await res.json();
+        const result=await webhookGet('uploadPhoto',{base64Data:base64,mimeType:photo.type||'image/jpeg',logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:photo.t||data.t1,building:data.building});
         if(result.ok)photoLinks[lpId].push({url:result.fileUrl,label:result.shortLabel});
       }
     }
-    // Upload notes as Google Docs
+    // Upload notes
     const noteLinks={};
     for(const [lpId,noteText] of Object.entries(data.notes||{})){
       if(!noteText||!noteText.trim())continue;
       const lp=ST.selectedTemplate.logs.find(l=>l.id===lpId);
-      const res=await fetch(WEBHOOK,{method:'POST',body:JSON.stringify({action:'createNote',logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:data.t1,building:data.building,notesText:noteText})});
-      const result=await res.json();
+      const result=await webhookGet('createNote',{logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:data.t1,building:data.building,notesText:noteText});
       if(result.ok)noteLinks[lpId]={url:result.fileUrl,label:result.shortLabel};
     }
     // Build entries
@@ -562,9 +569,8 @@ async function syncRound(data,el){
       const photos=photoLinks[lp.id]||[];const note=noteLinks[lp.id];
       return{name:lp.name,value:data.vals[lp.id]!==undefined?data.vals[lp.id]:'',unit:lp.unit||'',alertLo:lp.alertLo||'',alertHi:lp.alertHi||'',hasPhoto:photos.length>0,photoLink:photos.map(p=>`=HYPERLINK("${p.url}","${p.label}")`).join(', '),hasNotes:!!note,notesLink:note?`=HYPERLINK("${note.url}","${note.label}")`:'',};
     });
-    // Submit round
-    const roundRes=await fetch(WEBHOOK,{method:'POST',body:JSON.stringify({action:'submitRound',templateName:data.templateName,sheetTab:data.sheetTab,engineer:data.eng,timestamp:data.t1,building:data.building,entries})});
-    const result=await roundRes.json();
+    // Submit round via GET
+    const result=await webhookGet('submitRound',{templateName:data.templateName,sheetTab:data.sheetTab,engineer:data.eng,timestamp:data.t1,building:data.building,entries});
     if(result.ok){
       if(el){el.className='sync-st synced';el.textContent='✓ Synced to Google Sheets';}
       const h=JSON.parse(localStorage.getItem('lc_history')||'[]');const rec=h.find(r=>r.rid===data.rid);if(rec)rec.synced=true;localStorage.setItem('lc_history',JSON.stringify(h));
