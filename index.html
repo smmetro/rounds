@@ -259,12 +259,17 @@ async function loadConfig(){
   const url=getWebhookUrl();
   if(url){
     try{
-      const res=await fetch(url+'?action=getConfig',{cache:'no-store'});
-      const data=await res.json();
-      if(data.ok&&data.config){
+      const data=await new Promise((resolve)=>{
+        const xhr=new XMLHttpRequest();
+        xhr.open('GET',url+'?action=getConfig',true);
+        xhr.onload=()=>{try{resolve(JSON.parse(xhr.responseText));}catch(e){resolve(null);}};
+        xhr.onerror=()=>resolve(null);
+        xhr.timeout=10000;xhr.ontimeout=()=>resolve(null);
+        xhr.send();
+      });
+      if(data&&data.ok&&data.config){
         APP_CONFIG=data.config;
         localStorage.setItem('lc_admin_config',JSON.stringify(data.config));
-        // Sync webhook URL from config if present
         if(data.config.webhookUrl)localStorage.setItem('lc_sheet_url',data.config.webhookUrl);
         return;
       }
@@ -535,8 +540,18 @@ async function webhookGet(action, data){
   if(!WEBHOOK)return{ok:false,error:'No webhook'};
   let url=WEBHOOK+'?action='+action;
   if(data)url+='&data='+encodeURIComponent(JSON.stringify(data));
-  const res=await fetch(url,{cache:'no-store'});
-  return res.json();
+  return new Promise((resolve)=>{
+    const xhr=new XMLHttpRequest();
+    xhr.open('GET',url,true);
+    xhr.onload=()=>{
+      try{resolve(JSON.parse(xhr.responseText));}
+      catch(e){resolve({ok:false,error:'Parse error'});}
+    };
+    xhr.onerror=()=>resolve({ok:false,error:'Network error'});
+    xhr.ontimeout=()=>resolve({ok:false,error:'Timeout'});
+    xhr.timeout=30000;
+    xhr.send();
+  });
 }
 
 async function syncRound(data,el){
