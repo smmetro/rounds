@@ -243,7 +243,7 @@ function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCod
 function getUsers(){return JSON.parse(localStorage.getItem('lc_users')||'[]');}
 function saveUsers(u){localStorage.setItem('lc_users',JSON.stringify(u));}
 function getWebhookUrl(){
-  const HARDCODED='https://script.google.com/macros/s/AKfycbx6L3J3IpPmUfcGOYx_2FIWHyF6C0ebBMQkYRbTbDl0olItBTZ-lKC7VhaxazQKMZ9O/exec';
+  const HARDCODED='https://script.google.com/macros/s/AKfycbymw35Wb0k52fI-iUIVohpNyTOAUWOtJcznvGNWQC4WVlPjVTg_-gpDoVNdBhtQwqZk/exec';
   return localStorage.getItem('lc_sheet_url')||HARDCODED;
 }
 function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+id).classList.add('active');window.scrollTo(0,0);}
@@ -576,7 +576,7 @@ async function syncRound(data,el){
       const h=JSON.parse(localStorage.getItem('lc_history')||'[]');const rec=h.find(r=>r.rid===data.rid);if(rec)rec.synced=true;localStorage.setItem('lc_history',JSON.stringify(h));
     }else throw new Error(result.error||'Sync failed');
   }catch(err){
-    if(el){el.className='sync-st pend';el.textContent='Sync failed — saved locally';}
+    if(el){el.className='sync-st pend';el.textContent='Sync failed: '+err.message;}
     console.error('Sync error:',err);
   }
 }
