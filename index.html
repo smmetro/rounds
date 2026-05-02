@@ -4,8 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Rounds</title>
-
-<!-- PWA -->
 <meta name="theme-color" content="#0f1117">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,38 +11,23 @@
 <meta name="apple-mobile-web-app-title" content="Rounds">
 <link id="pwa-apple-icon" rel="apple-touch-icon">
 <link id="pwa-manifest" rel="manifest">
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ── PWA bootstrap ─────────────────────────────────────────────
-(function () {
-  const SIZE = 512;
-  const c = document.createElement('canvas');
-  c.width = c.height = SIZE;
-  const ctx = c.getContext('2d');
-  const R = SIZE * 0.22;
-  ctx.beginPath();
-  ctx.moveTo(R,0);ctx.lineTo(SIZE-R,0);ctx.quadraticCurveTo(SIZE,0,SIZE,R);
-  ctx.lineTo(SIZE,SIZE-R);ctx.quadraticCurveTo(SIZE,SIZE,SIZE-R,SIZE);
-  ctx.lineTo(R,SIZE);ctx.quadraticCurveTo(0,SIZE,0,SIZE-R);
-  ctx.lineTo(0,R);ctx.quadraticCurveTo(0,0,R,0);ctx.closePath();
-  ctx.fillStyle='#0f1117';ctx.fill();
-  ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE*0.28,0,Math.PI*2);ctx.fillStyle='#4f8ef7';ctx.fill();
-  ctx.strokeStyle='#fff';ctx.lineWidth=SIZE*0.065;ctx.lineCap='round';ctx.lineJoin='round';
-  ctx.beginPath();ctx.moveTo(SIZE*0.34,SIZE*0.50);ctx.lineTo(SIZE*0.46,SIZE*0.62);ctx.lineTo(SIZE*0.66,SIZE*0.38);ctx.stroke();
-  const iconDataURL = c.toDataURL('image/png');
-  document.getElementById('pwa-apple-icon').href = iconDataURL;
-  const manifest = {name:'Rounds',short_name:'Rounds',description:'Building rounds field app',start_url:'./',scope:'./',display:'standalone',background_color:'#0f1117',theme_color:'#4f8ef7',orientation:'portrait-primary',icons:[{src:iconDataURL,sizes:'192x192',type:'image/png',purpose:'any maskable'},{src:iconDataURL,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
-  const mBlob = new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'});
-  document.getElementById('pwa-manifest').href = URL.createObjectURL(mBlob);
-  if('serviceWorker' in navigator){
-    // Unregister all service workers so updates always load fresh
-    navigator.serviceWorker.getRegistrations().then(regs=>{
-      regs.forEach(reg=>reg.unregister());
-    });
-  }
+const SUPA_URL='https://hczgckuggechzybulded.supabase.co';
+const SUPA_KEY='sb_publishable_vvyTcuHXfJN1hydx8OgJyQ_y1Q7FeIp';
+const db=supabase.createClient(SUPA_URL,SUPA_KEY);
+(function(){
+  const SIZE=512,c=document.createElement('canvas');c.width=c.height=SIZE;const ctx=c.getContext('2d');
+  const R=SIZE*.22;ctx.beginPath();ctx.moveTo(R,0);ctx.lineTo(SIZE-R,0);ctx.quadraticCurveTo(SIZE,0,SIZE,R);ctx.lineTo(SIZE,SIZE-R);ctx.quadraticCurveTo(SIZE,SIZE,SIZE-R,SIZE);ctx.lineTo(R,SIZE);ctx.quadraticCurveTo(0,SIZE,0,SIZE-R);ctx.lineTo(0,R);ctx.quadraticCurveTo(0,0,R,0);ctx.closePath();ctx.fillStyle='#0f1117';ctx.fill();
+  ctx.beginPath();ctx.arc(SIZE/2,SIZE/2,SIZE*.28,0,Math.PI*2);ctx.fillStyle='#4f8ef7';ctx.fill();
+  ctx.strokeStyle='#fff';ctx.lineWidth=SIZE*.065;ctx.lineCap='round';ctx.lineJoin='round';ctx.beginPath();ctx.moveTo(SIZE*.34,SIZE*.50);ctx.lineTo(SIZE*.46,SIZE*.62);ctx.lineTo(SIZE*.66,SIZE*.38);ctx.stroke();
+  const icon=c.toDataURL('image/png');
+  document.getElementById('pwa-apple-icon').href=icon;
+  const m={name:'Rounds',short_name:'Rounds',description:'Building rounds field app',start_url:'./',scope:'./',display:'standalone',background_color:'#0f1117',theme_color:'#4f8ef7',orientation:'portrait-primary',icons:[{src:icon,sizes:'192x192',type:'image/png',purpose:'any maskable'},{src:icon,sizes:'512x512',type:'image/png',purpose:'any maskable'}]};
+  document.getElementById('pwa-manifest').href=URL.createObjectURL(new Blob([JSON.stringify(m)],{type:'application/manifest+json'}));
+  if('serviceWorker' in navigator)navigator.serviceWorker.getRegistrations().then(r=>r.forEach(s=>s.unregister()));
 })();
 </script>
-
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#0f1117;--surf:#1c1f2e;--surf2:#252840;--acc:#4f8ef7;--ok:#2ecc71;--warn:#f39c12;--danger:#e74c3c;--txt:#f0f2ff;--txt2:#9ba3c7;--bdr:#2e3250;--r:14px;--inp:#12141f}
@@ -78,38 +61,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .prog-fill{height:100%;background:var(--acc);border-radius:2px;transition:width .3s}
 .prog-txt{font-size:11px;color:var(--txt2);white-space:nowrap}
 .badge{display:inline-block;background:var(--surf2);color:var(--acc);font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.4px}
-.log-content{flex:1;padding:16px 18px;display:flex;flex-direction:column}
-.log-card{background:var(--surf);border-radius:var(--r);padding:20px 18px;border:1px solid var(--bdr);flex:1;display:flex;flex-direction:column;gap:16px}
-.log-name{font-size:21px;font-weight:800;line-height:1.2}
-.log-desc{font-size:12px;color:var(--txt2);margin-top:3px;line-height:1.4}
-.prev{background:var(--inp);border-radius:8px;padding:10px 13px;font-size:12px;color:var(--txt2);cursor:pointer;display:none}
+.log-content{flex:1;padding:10px 14px;display:flex;flex-direction:column}
+.log-card{background:var(--surf);border-radius:var(--r);padding:14px;border:1px solid var(--bdr);flex:1;display:flex;flex-direction:column;gap:10px}
+.log-name{font-size:19px;font-weight:800;line-height:1.2}
+.log-desc{font-size:12px;color:var(--txt2);line-height:1.4}
+.prev{background:var(--inp);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--txt2);cursor:pointer;display:none}
 .prev.vis{display:block}.prev strong{color:var(--txt)}
-.s-grid{display:grid;gap:9px}
+.s-grid{display:grid;gap:8px}
 .s-grid.c2{grid-template-columns:1fr 1fr}.s-grid.c3{grid-template-columns:1fr 1fr 1fr}.s-grid.c4{grid-template-columns:1fr 1fr 1fr 1fr}
-.s-opt{padding:17px 6px;border-radius:11px;border:2px solid var(--bdr);background:var(--inp);color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
+.s-opt{padding:14px 6px;border-radius:10px;border:2px solid var(--bdr);background:var(--inp);color:var(--txt2);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;text-align:center}
 .s-opt.sel{border-color:var(--acc);background:rgba(79,142,247,.15);color:var(--txt)}
 .s-opt.ok.sel{border-color:var(--ok);background:rgba(46,204,113,.12);color:var(--ok)}
 .s-opt.warn.sel{border-color:var(--warn);background:rgba(243,156,18,.12);color:var(--warn)}
 .s-opt.alarm.sel{border-color:var(--danger);background:rgba(231,76,60,.12);color:var(--danger)}
 .num-wrap{position:relative;width:100%}
-.num-inp{width:100%;background:var(--inp);border:2px solid var(--bdr);border-radius:11px;padding:18px 70px 18px 18px;font-size:30px;font-weight:700;color:var(--txt);text-align:center;outline:none;transition:border-color .15s}
+.num-inp{width:100%;background:var(--inp);border:2px solid var(--bdr);border-radius:11px;padding:16px 70px 16px 18px;font-size:28px;font-weight:700;color:var(--txt);text-align:center;outline:none;transition:border-color .15s}
 .num-inp:focus{border-color:var(--acc)}
 .num-unit{position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:13px;font-weight:600;color:var(--txt2);pointer-events:none}
 .range-ind{font-size:11px;color:var(--txt2);text-align:center}
 .range-ind.ralert{color:var(--danger);font-weight:600}.range-ind.rwarn{color:var(--warn);font-weight:600}
-.ack-btn{width:100%;padding:14px;background:var(--warn);border:none;border-radius:11px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:none}.ack-btn.show{display:block}
+.ack-btn{width:100%;padding:12px;background:var(--warn);border:none;border-radius:11px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;display:none}.ack-btn.show{display:block}
 .action-row{display:flex;gap:10px}
-.action-btn{flex:1;padding:11px;background:var(--inp);border:1px solid var(--bdr);border-radius:9px;color:var(--txt2);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
+.action-btn{flex:1;padding:10px;background:var(--inp);border:1px solid var(--bdr);border-radius:9px;color:var(--txt2);font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:all .15s}
 .action-btn.active{border-color:var(--acc);color:var(--acc)}
 .notes-box{background:var(--inp);border:1px solid var(--bdr);border-radius:9px;padding:10px;display:none;position:relative}.notes-box.open{display:block}
-.notes-ta{width:100%;background:transparent;border:none;color:var(--txt);font-size:13px;resize:none;outline:none;min-height:70px;font-family:inherit;padding-right:28px}
+.notes-ta{width:100%;background:transparent;border:none;color:var(--txt);font-size:13px;resize:none;outline:none;min-height:60px;font-family:inherit;padding-right:28px}
 .notes-clear{position:absolute;top:8px;right:8px;background:none;border:none;color:var(--txt2);font-size:16px;cursor:pointer}
 .photo-list{display:flex;flex-wrap:wrap;gap:7px}
-.photo-thumb{width:56px;height:56px;border-radius:8px;object-fit:cover;border:1px solid var(--bdr);cursor:pointer}
-.log-nav{display:flex;gap:10px;padding:14px 18px;background:var(--surf);border-top:1px solid var(--bdr);align-items:center}
-.nav-p{padding:14px 18px;background:var(--surf2);border:1px solid var(--bdr);border-radius:11px;color:var(--txt);font-size:15px;cursor:pointer;font-weight:600}
-.nav-jump{padding:14px;background:var(--surf2);border:1px solid var(--bdr);border-radius:11px;color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center}
-.nav-n{flex:1;padding:14px;background:var(--acc);border:none;border-radius:11px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}.nav-n.done{background:var(--ok)}
+.photo-thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;border:1px solid var(--bdr);cursor:pointer}
+.log-nav{display:flex;gap:10px;padding:12px 14px;background:var(--surf);border-top:1px solid var(--bdr);align-items:center}
+.nav-p{padding:12px 16px;background:var(--surf2);border:1px solid var(--bdr);border-radius:11px;color:var(--txt);font-size:15px;cursor:pointer;font-weight:600}
+.nav-jump{padding:12px;background:var(--surf2);border:1px solid var(--bdr);border-radius:11px;color:var(--txt2);cursor:pointer;display:flex;align-items:center;justify-content:center}
+.nav-n{flex:1;padding:12px;background:var(--acc);border:none;border-radius:11px;color:#fff;font-size:15px;font-weight:700;cursor:pointer}.nav-n.done{background:var(--ok)}
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;display:none;flex-direction:column}.overlay.open{display:flex}
 .jump-panel{background:var(--surf);border-radius:var(--r) var(--r) 0 0;margin-top:auto;max-height:78vh;display:flex;flex-direction:column}
 .jump-hdr{padding:14px 18px;border-bottom:1px solid var(--bdr);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -136,11 +119,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </style>
 </head>
 <body>
-
-<div class="loading-overlay" id="loading-overlay">
-  <div class="spinner"></div>
-  <p>Loading Rounds...</p>
-</div>
+<div class="loading-overlay" id="loading-overlay"><div class="spinner"></div><p>Loading Rounds...</p></div>
 
 <div id="s-login" class="screen">
   <div class="auth-wrap">
@@ -152,7 +131,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="auth-err" id="login-err">Incorrect username or password</div>
       <button class="auth-btn" onclick="doLogin()">Sign In</button>
     </div>
-    <button onclick="emergencyReset()" style="background:none;border:none;color:rgba(255,255,255,0.15);font-size:11px;cursor:pointer;margin-top:8px">Reset App Data</button>
+    <button onclick="emergencyReset()" style="background:none;border:none;color:rgba(255,255,255,0.1);font-size:11px;cursor:pointer;margin-top:8px">Reset App Data</button>
   </div>
 </div>
 
@@ -222,7 +201,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="done-icon">✅</div>
     <h2>Round Complete</h2>
     <p id="done-sum"></p>
-    <div class="sync-st" id="sync-st">Saving data...</div>
+    <div class="sync-st" id="sync-st">Saving...</div>
     <button class="new-btn" onclick="resetRound()">Back to Rounds Menu</button>
   </div>
 </div>
@@ -238,43 +217,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-// ── UTILITIES ────────────────────────────────────────────────
 function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCodeAt(i);h|=0;}return h.toString(36);}
 function getUsers(){return JSON.parse(localStorage.getItem('lc_users')||'[]');}
 function saveUsers(u){localStorage.setItem('lc_users',JSON.stringify(u));}
-function getWebhookUrl(){
-  const HARDCODED='https://script.google.com/macros/s/AKfycbymw35Wb0k52fI-iUIVohpNyTOAUWOtJcznvGNWQC4WVlPjVTg_-gpDoVNdBhtQwqZk/exec';
-  return localStorage.getItem('lc_sheet_url')||HARDCODED;
-}
 function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+id).classList.add('active');window.scrollTo(0,0);}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function fmtTime(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
 function fmtDate(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}
 function getPrev(lpId,tmplId){const h=JSON.parse(localStorage.getItem('lc_history')||'[]');for(const r of h){if(r.templateId===tmplId&&r.vals&&r.vals[lpId]!==undefined)return{v:r.vals[lpId],t:r.t1};}return null;}
+function emergencyReset(){if(confirm('Clear all app data and start fresh?')){localStorage.clear();location.reload();}}
 
-// ── CONFIG — fetched from Sheet on every open ────────────────
-let APP_CONFIG = null;
+let APP_CONFIG=null;
 
 async function loadConfig(){
-  const url=getWebhookUrl();
-  if(url){
-    try{
-      const data=await new Promise((resolve)=>{
-        const xhr=new XMLHttpRequest();
-        xhr.open('GET',url+'?action=getConfig',true);
-        xhr.onload=()=>{try{resolve(JSON.parse(xhr.responseText));}catch(e){resolve(null);}};
-        xhr.onerror=()=>resolve(null);
-        xhr.timeout=10000;xhr.ontimeout=()=>resolve(null);
-        xhr.send();
-      });
-      if(data&&data.ok&&data.config){
-        APP_CONFIG=data.config;
-        localStorage.setItem('lc_admin_config',JSON.stringify(data.config));
-        if(data.config.webhookUrl)localStorage.setItem('lc_sheet_url',data.config.webhookUrl);
-        return;
-      }
-    }catch(e){/* offline */}
-  }
+  try{
+    const{data,error}=await db.from('app_config').select('config').eq('id','main').single();
+    if(!error&&data&&data.config&&Object.keys(data.config).length>0){
+      APP_CONFIG=data.config;
+      localStorage.setItem('lc_admin_config',JSON.stringify(data.config));
+      return;
+    }
+  }catch(e){}
   const cached=localStorage.getItem('lc_admin_config');
   if(cached){try{APP_CONFIG=JSON.parse(cached);}catch(e){APP_CONFIG=getDefaultConfig();}}
   else APP_CONFIG=getDefaultConfig();
@@ -282,23 +245,15 @@ async function loadConfig(){
 
 function getConfig(){return APP_CONFIG||getDefaultConfig();}
 
-// ── BOOT ─────────────────────────────────────────────────────
-function emergencyReset(){
-  if(confirm('Clear all app data and start fresh?')){
-    localStorage.clear();location.reload();
-  }
-}
-
 async function init(){
   await loadConfig();
   document.getElementById('loading-overlay').classList.add('gone');
   checkSession();
 }
 
-// ── AUTH ─────────────────────────────────────────────────────
 function checkSession(){
   const users=getUsers();
-  if(users.length===0){users.push({username:'Scott',email:'smorris@metroservices.com',pwHash:null,forceReset:false,isAdmin:true,assignedRounds:'all'});saveUsers(users);}
+  if(!users.length){users.push({username:'Scott',email:'smorris@metroservices.com',pwHash:null,forceReset:false,isAdmin:true,assignedRounds:'all'});saveUsers(users);}
   const token=localStorage.getItem('lc_session');
   if(token){const user=users.find(u=>u.username===token);if(user){enterApp(user);return;}}
   goTo('login');
@@ -338,7 +293,6 @@ function enterApp(user){
   renderRoundCards(user);goTo('rounds');
 }
 
-// ── ROUND SELECTION ──────────────────────────────────────────
 const ICONS=['🏢','⚡','🔥','💧','🌡️','🔧','⚙️','📊','🏭','🔌'];
 
 function getAssignedTemplates(user){
@@ -367,7 +321,6 @@ function selectTemplate(tmpl){
   render();goTo('log');
 }
 
-// ── CONDITIONAL LOGIC ────────────────────────────────────────
 function buildActiveLog(tmpl,vals){
   return(tmpl.logs||[]).filter(lp=>{
     if(!lp.condEnabled||!lp.condTrigger||!lp.condValue)return true;
@@ -384,7 +337,6 @@ function rebuildActiveLog(){
   if(curId){const ni=newActive.findIndex(l=>l.id===curId);if(ni!==-1)ST.idx=ni;else if(ST.idx>=newActive.length)ST.idx=Math.max(0,newActive.length-1);}
 }
 
-// ── STATE ────────────────────────────────────────────────────
 let ST={currentUser:null,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{},_photoTarget:null};
 
 function render(){
@@ -471,7 +423,7 @@ function triggerPhoto(){if(ST.active[ST.idx])ST._photoTarget=ST.active[ST.idx].i
 
 function handlePhotos(e){
   const id=ST._photoTarget;if(!id)return;if(!ST.photos[id])ST.photos[id]=[];
-  Array.from(e.target.files).slice(0,5-ST.photos[id].length).forEach(f=>{
+  Array.from(e.target.files).slice(0,5-(ST.photos[id].length)).forEach(f=>{
     const r=new FileReader();
     r.onload=ev=>{ST.photos[id].push({data:ev.target.result,name:f.name,type:f.type,t:new Date().toISOString()});renderPhotos(id);};
     r.readAsDataURL(f);
@@ -517,11 +469,10 @@ function closeJumpOutside(e){if(e.target===document.getElementById('jump-overlay
 function showHist(){
   const lp=ST.active[ST.idx];const h=JSON.parse(localStorage.getItem('lc_history')||'[]');const tmplId=ST.selectedTemplate.id;
   const rows=h.filter(r=>r.templateId===tmplId&&r.vals&&r.vals[lp.id]!==undefined).slice(0,5)
-    .map(r=>{let line=fmtDate(r.t1)+': '+r.vals[lp.id]+(lp.unit?' '+lp.unit:'');if(r.editMap&&r.editMap[lp.id])line+=' [edited by '+r.editMap[lp.id].by+']';return line;}).join('\n');
+    .map(r=>fmtDate(r.t1)+': '+r.vals[lp.id]+(lp.unit?' '+lp.unit:'')).join('\n');
   alert('Recent — '+lp.name+':\n\n'+(rows||'No history yet'));
 }
 
-// ── COMPLETE ROUND ───────────────────────────────────────────
 function completeRound(){
   const tmpl=ST.selectedTemplate;const cfg=getConfig();
   const alerts=JSON.parse(localStorage.getItem('lc_alerts')||'[]').filter(a=>a.rid===ST.rid);
@@ -530,68 +481,37 @@ function completeRound(){
   goTo('done');
   const logged=Object.keys(ST.vals).length;
   document.getElementById('done-sum').textContent=logged+' readings by '+ST.currentUser+(alerts.length?' · '+alerts.length+' alert'+(alerts.length>1?'s':''):'');
-  const ss=document.getElementById('sync-st');
-  if(navigator.onLine&&getWebhookUrl())syncRound(data,ss);
-  else{ss.className='sync-st pend';ss.textContent='Offline — saved locally, will sync when connected';}
-}
-
-async function webhookGet(action, data){
-  const WEBHOOK=getWebhookUrl();
-  if(!WEBHOOK)return{ok:false,error:'No webhook'};
-  let url=WEBHOOK+'?action='+action;
-  if(data)url+='&data='+encodeURIComponent(JSON.stringify(data));
-  return new Promise((resolve)=>{
-    const xhr=new XMLHttpRequest();
-    xhr.open('GET',url,true);
-    xhr.onload=()=>{
-      try{resolve(JSON.parse(xhr.responseText));}
-      catch(e){resolve({ok:false,error:'Parse error'});}
-    };
-    xhr.onerror=()=>resolve({ok:false,error:'Network error'});
-    xhr.ontimeout=()=>resolve({ok:false,error:'Timeout'});
-    xhr.timeout=30000;
-    xhr.send();
-  });
+  syncRound(data,document.getElementById('sync-st'));
 }
 
 async function syncRound(data,el){
-  const WEBHOOK=getWebhookUrl();
-  if(!WEBHOOK){if(el){el.className='sync-st pend';el.textContent='Webhook not configured — data saved locally';}return;}
   el.textContent='Syncing...';
   try{
-    // Upload photos
-    const photoLinks={};
-    for(const [lpId,photos] of Object.entries(data.photos||{})){
-      if(!photos||!photos.length)continue;
-      const lp=ST.selectedTemplate.logs.find(l=>l.id===lpId);
-      photoLinks[lpId]=[];
-      for(const photo of photos){
-        const base64=photo.data.split(',')[1];
-        const result=await webhookGet('uploadPhoto',{base64Data:base64,mimeType:photo.type||'image/jpeg',logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:photo.t||data.t1,building:data.building});
-        if(result.ok)photoLinks[lpId].push({url:result.fileUrl,label:result.shortLabel});
-      }
-    }
-    // Upload notes
-    const noteLinks={};
-    for(const [lpId,noteText] of Object.entries(data.notes||{})){
-      if(!noteText||!noteText.trim())continue;
-      const lp=ST.selectedTemplate.logs.find(l=>l.id===lpId);
-      const result=await webhookGet('createNote',{logPointName:lp?lp.name:lpId,engineer:data.eng,timestamp:data.t1,building:data.building,notesText:noteText});
-      if(result.ok)noteLinks[lpId]={url:result.fileUrl,label:result.shortLabel};
-    }
-    // Build entries
-    const entries=(ST.selectedTemplate.logs||[]).map(lp=>{
-      const photos=photoLinks[lp.id]||[];const note=noteLinks[lp.id];
-      return{name:lp.name,value:data.vals[lp.id]!==undefined?data.vals[lp.id]:'',unit:lp.unit||'',alertLo:lp.alertLo||'',alertHi:lp.alertHi||'',hasPhoto:photos.length>0,photoLink:photos.map(p=>`=HYPERLINK("${p.url}","${p.label}")`).join(', '),hasNotes:!!note,notesLink:note?`=HYPERLINK("${note.url}","${note.label}")`:'',};
+    const entries=(ST.selectedTemplate.logs||[]).map(lp=>({
+      name:lp.name,
+      value:data.vals[lp.id]!==undefined?data.vals[lp.id]:'',
+      unit:lp.unit||'',
+      notes:data.notes[lp.id]||'',
+      hasPhoto:!!(data.photos[lp.id]&&data.photos[lp.id].length),
+      photoCount:(data.photos[lp.id]||[]).length
+    }));
+    const{error}=await db.from('rounds').insert({
+      id:data.rid,
+      template_name:data.templateName,
+      sheet_tab:data.sheetTab,
+      engineer:data.eng,
+      building:data.building,
+      round_timestamp:data.t1,
+      entries:entries,
+      alerts:data.alerts
     });
-    // Submit round via GET
-    const result=await webhookGet('submitRound',{templateName:data.templateName,sheetTab:data.sheetTab,engineer:data.eng,timestamp:data.t1,building:data.building,entries});
-    if(result.ok){
-      if(el){el.className='sync-st synced';el.textContent='✓ Synced to Google Sheets';}
-      const h=JSON.parse(localStorage.getItem('lc_history')||'[]');const rec=h.find(r=>r.rid===data.rid);if(rec)rec.synced=true;localStorage.setItem('lc_history',JSON.stringify(h));
-    }else throw new Error(result.error||'Sync failed');
+    if(error)throw new Error(error.message);
+    el.className='sync-st synced';el.textContent='✓ Synced to Rounds database';
+    const h=JSON.parse(localStorage.getItem('lc_history')||'[]');
+    const rec=h.find(r=>r.rid===data.rid);if(rec)rec.synced=true;
+    localStorage.setItem('lc_history',JSON.stringify(h));
   }catch(err){
-    if(el){el.className='sync-st pend';el.textContent='Sync failed: '+err.message;}
+    el.className='sync-st pend';el.textContent='Sync failed: '+err.message;
     console.error('Sync error:',err);
   }
 }
@@ -602,14 +522,11 @@ function resetRound(){
   if(user)loadConfig().then(()=>enterApp(user));else goTo('rounds');
 }
 
-// ── DEFAULT CONFIG ───────────────────────────────────────────
 function getDefaultConfig(){
-  return{building:'Rounds',webhookUrl:'',alertEmails:[],templates:[{
+  return{building:'Rounds',alertEmails:[],templates:[{
     id:'daily',name:'Daily Rounds',description:'Full building inspection',active:true,sheetTab:'Daily Rounds',
     logs:[
       {id:'fcr_alarms',sec:'Fire Control Room',name:'Alarms',desc:'Check panel for any active alarms',type:'status',unit:'',opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-      {id:'fcr_troubles',sec:'Fire Control Room',name:'Troubles',desc:'Check panel for trouble conditions',type:'status',unit:'',opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
-      {id:'dw_lead',sec:'Domestic Water',name:'Lead Pump',desc:'Which pump is currently lead',type:'status',unit:'',opts:[{label:'#1',style:''},{label:'#2',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
       {id:'dw_freq',sec:'Domestic Water',name:'Pump Frequency',desc:'Read VFD display',type:'numeric',unit:'Hz',opts:[],warnLo:'40',warnHi:'60',alertLo:'30',alertHi:'65',condEnabled:false,condTrigger:'',condValue:''},
       {id:'gen_status',sec:'Emergency Generator',name:'Generator Status',desc:'Controller selector switch position',type:'status',unit:'',opts:[{label:'Auto',style:'ok'},{label:'On',style:'warn'},{label:'Off',style:''}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
     ]

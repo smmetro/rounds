@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Rounds Admin Panel</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPA_URL='https://hczgckuggechzybulded.supabase.co';
+const SUPA_KEY='sb_publishable_vvyTcuHXfJN1hydx8OgJyQ_y1Q7FeIp';
+const db=supabase.createClient(SUPA_URL,SUPA_KEY);
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{--bg:#f4f5f7;--surf:#ffffff;--surf2:#f0f2f5;--acc:#2563eb;--acc2:#1d4ed8;--ok:#16a34a;--warn:#d97706;--danger:#dc2626;--txt:#111827;--txt2:#6b7280;--bdr:#e5e7eb;--r:10px}
@@ -76,12 +82,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .log-item.drag-over{border-color:var(--acc);box-shadow:0 0 0 2px rgba(37,99,235,.2)}
 .drag-handle{color:var(--txt2);font-size:16px;cursor:grab;padding:0 4px;flex-shrink:0;user-select:none}
 .drag-handle:active{cursor:grabbing}
-/* Prevent drag-and-drop conflict with text inputs */
-.log-item input, .log-item textarea, .log-item select,
-.section-block input, .section-block textarea, .section-block select {
-  -webkit-user-drag: none;
-  user-drag: none;
-}
 .sec-hdr{padding:11px 14px;background:var(--surf2);display:flex;align-items:center;gap:8px;user-select:none}
 .sec-hdr .sec-name{font-size:13px;font-weight:700;flex:1;cursor:pointer}
 .sec-hdr .sec-count{font-size:10px;color:var(--txt2);background:var(--bdr);padding:2px 7px;border-radius:20px}
@@ -184,7 +184,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="panel-body">
         <div class="field-row">
           <div class="field"><label>Building Name</label><input type="text" id="cfg-building" placeholder="e.g. 343 Sansome St."></div>
-          <div class="field"><label>Google Apps Script Webhook URL</label><input type="url" id="cfg-webhook" placeholder="Paste your Apps Script Web App URL here"></div>
+          
         </div>
         <div class="field-row single">
           <div class="field">
@@ -283,20 +283,15 @@ function doAdminSetPw(){
 function doAdminLogout(){localStorage.removeItem('lc_admin_session');showScreen('s-login');}
 async function enterAdmin(user){
   showScreen('s-main');
-  const cfg=getConfig();
-  // Try to fetch latest config from webhook
-  const webhookUrl=cfg.webhookUrl||cfg.webhook||localStorage.getItem('lc_sheet_url')||'';
-  if(webhookUrl){
-    try{
-      const res=await fetch(webhookUrl+'?action=getConfig',{cache:'no-store'});
-      const data=await res.json();
-      if(data.ok&&data.config){saveConfig(data.config);config=data.config;}
-    }catch(e){/* offline — use local cache */}
-  }
+  try{
+    const{data,error}=await db.from('app_config').select('config').eq('id','main').single();
+    if(!error&&data&&data.config&&Object.keys(data.config).length>0){
+      saveConfig(data.config);config=data.config;
+    }
+  }catch(e){}
   config=getConfig();
   document.getElementById('admin-building-sub').textContent=config.building||'Admin Panel';
   document.getElementById('cfg-building').value=config.building||'';
-  document.getElementById('cfg-webhook').value=config.webhookUrl||config.webhook||webhookUrl||'';
   renderEmailTags();renderUsers();renderTemplates();
 }
 
@@ -392,23 +387,9 @@ function initSectionDrag(el,tmplId,secName){
   });
 }
 
-function duplicateLog(tmplId,logId){
-  config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;
-  const log=(tmpl.logs||[]).find(l=>l.id===logId);if(!log)return;
-  const copy=JSON.parse(JSON.stringify(log));
-  copy.id='log_'+Date.now();copy.name=log.name+' (copy)';
-  const idx=tmpl.logs.findIndex(l=>l.id===logId);
-  tmpl.logs.splice(idx+1,0,copy);
-  saveConfig(config);
-  const secId='sec_'+tmplId+'_'+btoa(log.sec).replace(/=/g,'');
-  renderLogs(tmplId,log.sec,secId);
-  showToast('"'+log.name+'" duplicated');
-}
-
 function initLogDrag(el,tmplId,logId,secName){
   el.setAttribute('draggable','true');
   el.addEventListener('dragstart',e=>{
-    // Don't drag if user is interacting with a text field
     if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT'){e.preventDefault();return;}
     dragState={type:'log',tmplId,logId,secName,el};
     el.classList.add('dragging');
@@ -675,41 +656,41 @@ function deleteLog(tmplId,logId){
   const secId='sec_'+tmplId+'_'+btoa(secName).replace(/=/g,'');renderLogs(tmplId,secName,secId);
 }
 
+function duplicateLog(tmplId,logId){
+  config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;
+  const log=(tmpl.logs||[]).find(l=>l.id===logId);if(!log)return;
+  const copy=JSON.parse(JSON.stringify(log));
+  copy.id='log_'+Date.now();copy.name=log.name+' (copy)';
+  const idx=tmpl.logs.findIndex(l=>l.id===logId);
+  tmpl.logs.splice(idx+1,0,copy);
+  saveConfig(config);
+  const secId='sec_'+tmplId+'_'+btoa(log.sec).replace(/=/g,'');
+  renderLogs(tmplId,log.sec,secId);
+  showToast('"'+log.name+'" duplicated');
+}
+
 // SAVE ALL
 async function saveAll(){
   config=getConfig();
   config.building=document.getElementById('cfg-building').value;
-  config.webhookUrl=document.getElementById('cfg-webhook').value;
-  config.webhook=config.webhookUrl; // keep legacy key too
   saveConfig(config);
-  localStorage.setItem('lc_sheet_url',config.webhookUrl);
   localStorage.setItem('lc_alert_emails',JSON.stringify(config.alertEmails||[]));
   localStorage.setItem('lc_eng',JSON.stringify(getUsers().map(u=>u.username)));
   document.getElementById('admin-building-sub').textContent=config.building||'Admin Panel';
-
-  // Push config to Google Sheet so mobile app picks it up on next open
-  if(config.webhookUrl){
-    try{
-      showToast('Publishing...');
-      const res=await fetch(config.webhookUrl,{
-        method:'POST',
-        body:JSON.stringify({action:'saveConfig',config})
-      });
-      const result=await res.json();
-      if(result.ok)showToast('✓ Saved & published to all devices');
-      else showToast('⚠️ Saved locally — Sheet sync failed');
-    }catch(e){
-      showToast('⚠️ Saved locally — check webhook URL');
-    }
-  }else{
-    showToast('✓ Saved — add a webhook URL to sync to devices');
+  try{
+    showToast('Publishing...');
+    const{error}=await db.from('app_config').upsert({id:'main',config:config,updated_at:new Date().toISOString()});
+    if(error)throw new Error(error.message);
+    showToast('✓ Saved & published to all devices');
+  }catch(err){
+    showToast('⚠️ Saved locally — sync failed: '+err.message);
   }
   renderTemplates();renderUsers();
 }
 
 // DEFAULT CONFIG
 function getDefaultConfig(){
-  return{building:'',webhook:'',webhookUrl:'',alertEmails:['smorris@metroservices.com'],templates:[{id:'tmpl_daily',name:'Daily Rounds',description:'Standard daily building rounds',sheetTab:'Daily Rounds',active:true,logs:[
+  return{building:'',alertEmails:['smorris@metroservices.com'],templates:[{id:'tmpl_daily',name:'Daily Rounds',description:'Standard daily building rounds',sheetTab:'Daily Rounds',active:true,logs:[
     {id:'fcr_alarms',sec:'Fire Control Room',name:'Alarms',desc:'Check panel for any active alarms',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
     {id:'fcr_troubles',sec:'Fire Control Room',name:'Troubles',desc:'Check panel for trouble conditions',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
     {id:'fcr_supervisory',sec:'Fire Control Room',name:'Supervisory',desc:'Check supervisory conditions',type:'status',unit:'',cumulative:false,opts:[{label:'OK',style:'ok'},{label:'Active',style:'alarm'}],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''},
