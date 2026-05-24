@@ -549,7 +549,16 @@ async function syncRound(data,el){
 function resetRound(){
   ST.selectedTemplate=null;ST.vals={};ST.notes={};ST.photos={};ST.idx=0;
   const user=getUsers().find(u=>u.username===ST.currentUser);
-  if(user)loadConfig().then(()=>enterApp(user));else goTo('rounds');
+  loadConfig()
+    .then(()=>{
+      if(user)enterApp(user);
+      else{
+        // User not in localStorage — reload session from scratch
+        localStorage.removeItem('lc_session');
+        goTo('login');
+      }
+    })
+    .catch(()=>goTo('rounds'));
 }
 
 function getDefaultConfig(){
