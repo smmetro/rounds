@@ -127,7 +127,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="auth-logo"><h1>Rounds</h1><p>Sign in to continue</p></div>
     <div class="auth-card">
       <h2>Sign In</h2>
-      <div class="auth-field"><label>Username</label><input type="text" id="login-user" placeholder="Enter your username" autocomplete="username"></div>
+      <div class="auth-field"><label>Email</label><input type="email" id="login-email" placeholder="Enter your email" autocomplete="email"></div>
       <div class="auth-field"><label>Password</label><input type="password" id="login-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()"></div>
       <div class="auth-err" id="login-err">Incorrect username or password</div>
       <button class="auth-btn" onclick="doLogin()">Sign In</button>
@@ -218,34 +218,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCodeAt(i);h|=0;}return h.toString(36);}
-let USERS_CACHE = null;
+let CURRENT_USER_PROFILE = null;
 
-async function getUsers(){
-  if(USERS_CACHE)return USERS_CACHE;
+async function getCurrentUserProfile(){
+  if(CURRENT_USER_PROFILE)return CURRENT_USER_PROFILE;
   try{
-    const{data,error}=await db.from('users').select('*');
-    if(!error&&data&&data.length){
-      USERS_CACHE=data.map(u=>({username:u.username,email:u.email,pwHash:u.pw_hash,isAdmin:u.is_admin,assignedRounds:u.assigned_rounds,forceReset:u.force_reset}));
-      localStorage.setItem('lc_users',JSON.stringify(USERS_CACHE));
-      return USERS_CACHE;
+    const{data:{user},error}=await db.auth.getUser();
+    if(error||!user)return null;
+    const{data,error:dbErr}=await db.from('users').select('*').eq('auth_uid',user.id).single();
+    if(!dbErr&&data){
+      CURRENT_USER_PROFILE={username:data.username,email:data.email,isAdmin:data.is_admin,assignedRounds:data.assigned_rounds};
+      return CURRENT_USER_PROFILE;
     }
   }catch(e){}
-  const cached=localStorage.getItem('lc_users');
-  if(cached)USERS_CACHE=JSON.parse(cached);
-  else USERS_CACHE=[{username:'Scott',email:'smorris@metroservices.com',pwHash:null,isAdmin:true,assignedRounds:'all',forceReset:false}];
-  return USERS_CACHE;
+  return null;
 }
-
-async function saveUserPassword(username,pwHash){
-  try{
-    await db.from('users').update({pw_hash:pwHash,force_reset:false}).eq('username',username);
-  }catch(e){}
-  // Also update local cache
-  if(USERS_CACHE){const u=USERS_CACHE.find(u=>u.username===username);if(u){u.pwHash=pwHash;u.forceReset=false;}}
-  localStorage.setItem('lc_users',JSON.stringify(USERS_CACHE));
-}
-function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+id).classList.add('active');window.scrollTo(0,0);}
+function scrollToTop(){window.scrollTo({top:0,behavior:'instant'});document.documentElement.scrollTop=0;document.body.scrollTop=0;const lc=document.querySelector('.log-content');if(lc)lc.scrollTop=0;}
+function goTo(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById('s-'+id).classList.add('active');scrollToTop();}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function fmtTime(iso){if(!iso)return'';const d=new Date(iso);return d.toLocaleDateString('en-US',{month:'short',day:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});}
 function fmtDate(iso){if(!iso)return'';return new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'2-digit'});}
@@ -271,28 +260,35 @@ async function loadConfig(){
 function getConfig(){return APP_CONFIG||getDefaultConfig();}
 
 async function init(){
-  await Promise.all([loadConfig(),getUsers()]);
+  db.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){
+      await loadConfig();
+      document.getElementById('loading-overlay').classList.add('gone');
+      goTo('setpw');
+    }
+  });
+  await loadConfig();
   document.getElementById('loading-overlay').classList.add('gone');
-  checkSession();
-}
-
-async function checkSession(){
-  const users=await getUsers();
-  const token=localStorage.getItem('lc_session');
-  if(token){const user=users.find(u=>u.username===token);if(user){enterApp(user);return;}}
+  const{data:{session}}=await db.auth.getSession();
+  if(session){
+    const profile=await getCurrentUserProfile();
+    if(profile){enterApp(profile);return;}
+  }
   goTo('login');
 }
 
 async function doLogin(){
-  const username=document.getElementById('login-user').value.trim();
+  const email=document.getElementById('login-email').value.trim();
   const password=document.getElementById('login-pass').value;
-  const users=await getUsers();
-  const user=users.find(u=>u.username===username);
   const errEl=document.getElementById('login-err');
-  if(!user){errEl.classList.add('show');return;}
-  if(!user.pwHash||user.forceReset){localStorage.setItem('lc_pending_reset',username);goTo('setpw');return;}
-  if(hashPw(password)!==user.pwHash){errEl.classList.add('show');return;}
-  errEl.classList.remove('show');localStorage.setItem('lc_session',username);enterApp(user);
+  errEl.classList.remove('show');
+  const{data,error}=await db.auth.signInWithPassword({email,password});
+  if(error){errEl.textContent='Invalid email or password';errEl.classList.add('show');return;}
+  CURRENT_USER_PROFILE=null;
+  await loadConfig();
+  const profile=await getCurrentUserProfile();
+  if(!profile){errEl.textContent='Account not configured. Contact admin.';errEl.classList.add('show');await db.auth.signOut();return;}
+  enterApp(profile);
 }
 
 async function doSetPw(){
@@ -301,17 +297,15 @@ async function doSetPw(){
   if(pw1.length<6){errEl.textContent='Password must be at least 6 characters';errEl.classList.add('show');return;}
   if(pw1!==pw2){errEl.textContent="Passwords don't match";errEl.classList.add('show');return;}
   errEl.classList.remove('show');
-  const username=localStorage.getItem('lc_pending_reset');
-  await saveUserPassword(username,hashPw(pw1));
-  USERS_CACHE=null;
-  localStorage.removeItem('lc_pending_reset');
-  localStorage.setItem('lc_session',username);
-  const users=await getUsers();
-  const user=users.find(u=>u.username===username);
-  if(user)enterApp(user);
+  const{error}=await db.auth.updateUser({password:pw1});
+  if(error){errEl.textContent='Error setting password. Try again.';errEl.classList.add('show');return;}
+  CURRENT_USER_PROFILE=null;
+  await loadConfig();
+  const profile=await getCurrentUserProfile();
+  if(profile)enterApp(profile);else goTo('login');
 }
 
-function doLogout(){localStorage.removeItem('lc_session');ST.currentUser=null;goTo('login');}
+async function doLogout(){await db.auth.signOut();CURRENT_USER_PROFILE=null;ST.currentUser=null;goTo('login');}
 
 function enterApp(user){
   ST.currentUser=user.username;
@@ -369,6 +363,7 @@ function rebuildActiveLog(){
 let ST={currentUser:null,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{},_photoTarget:null};
 
 function render(){
+  scrollToTop();
   const total=ST.active.length;if(!total){completeRound();return;}
   const lp=ST.active[ST.idx];
   document.getElementById('pfill').style.width=((ST.idx/total)*100)+'%';
@@ -546,19 +541,16 @@ async function syncRound(data,el){
   }
 }
 
-function resetRound(){
+async function resetRound(){
   ST.selectedTemplate=null;ST.vals={};ST.notes={};ST.photos={};ST.idx=0;
-  const user=getUsers().find(u=>u.username===ST.currentUser);
-  loadConfig()
-    .then(()=>{
-      if(user)enterApp(user);
-      else{
-        // User not in localStorage — reload session from scratch
-        localStorage.removeItem('lc_session');
-        goTo('login');
-      }
-    })
-    .catch(()=>goTo('rounds'));
+  try{
+    await loadConfig();
+    const profile=CURRENT_USER_PROFILE||await getCurrentUserProfile();
+    if(profile)enterApp(profile);
+    else{await db.auth.signOut();goTo('login');}
+  }catch(e){
+    goTo('rounds');
+  }
 }
 
 function getDefaultConfig(){
