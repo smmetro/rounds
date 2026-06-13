@@ -149,7 +149,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="auth-box">
     <h1>Rounds Admin</h1>
     <p>Sign in to access the admin panel</p>
-    <div class="auth-field"><label>Username</label><input type="text" id="a-user" placeholder="Username" autocomplete="username"></div>
+    <div class="auth-field"><label>Email</label><input type="email" id="a-email" placeholder="Email address" autocomplete="email"></div>
     <div class="auth-field"><label>Password</label><input type="password" id="a-pass" placeholder="Password" onkeydown="if(event.key==='Enter')doAdminLogin()"></div>
     <div class="auth-err" id="a-err">Incorrect username or password — or no admin access</div>
     <button class="auth-btn" onclick="doAdminLogin()">Sign In</button>
@@ -243,44 +243,49 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="toast" id="toast"></div>
 
 <script>
-function hashPw(pw){let h=0;for(let i=0;i<pw.length;i++){h=((h<<5)-h)+pw.charCodeAt(i);h|=0;}return h.toString(36);}
-function getUsers(){return JSON.parse(localStorage.getItem('lc_users')||'[]');}
-function saveUsers(u){localStorage.setItem('lc_users',JSON.stringify(u));}
+const EDGE_FN_URL='https://hczgckuggechzybulded.supabase.co/functions/v1/manage-users';
+
+async function callEdgeFn(action,params){
+  const{data:{session}}=await db.auth.getSession();
+  if(!session)throw new Error('Not authenticated');
+  const res=await fetch(EDGE_FN_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
+    body:JSON.stringify({action,...params})
+  });
+  const result=await res.json();
+  if(!result.success)throw new Error(result.error||'Unknown error');
+  return result;
+}
+
 function getConfig(){const s=localStorage.getItem('lc_admin_config');if(!s)return getDefaultConfig();try{const c=JSON.parse(s);if(!c.templates)c.templates=[];return c;}catch(e){return getDefaultConfig();}}
 function saveConfig(c){localStorage.setItem('lc_admin_config',JSON.stringify(c));}
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000);}
 function showScreen(id){document.querySelectorAll('.auth-screen,.setpw-screen,.main-screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
 
 // AUTH
-function checkAdminSession(){
-  const users=getUsers();
-  if(users.length===0){users.push({username:'Scott',email:'smorris@metroservices.com',pwHash:null,forceReset:false,isAdmin:true,assignedRounds:'all'});saveUsers(users);}
-  const token=localStorage.getItem('lc_admin_session');
-  if(token){const user=users.find(u=>u.username===token);if(user&&user.isAdmin){enterAdmin(user);return;}}
-  showScreen('s-login');
+async function checkAdminSession(){
+  const{data:{session}}=await db.auth.getSession();
+  if(!session){showScreen('s-login');return;}
+  const{data:profile}=await db.from('users').select('is_admin,username').eq('auth_uid',session.user.id).single();
+  if(!profile||!profile.is_admin){await db.auth.signOut();showScreen('s-login');return;}
+  enterAdmin(profile);
 }
-function doAdminLogin(){
-  const username=document.getElementById('a-user').value.trim();
+
+async function doAdminLogin(){
+  const email=document.getElementById('a-email').value.trim();
   const password=document.getElementById('a-pass').value;
-  const users=getUsers();const user=users.find(u=>u.username===username);
   const errEl=document.getElementById('a-err');
-  if(!user||!user.isAdmin){errEl.classList.add('show');return;}
-  if(!user.pwHash||user.forceReset){localStorage.setItem('lc_admin_pending',username);showScreen('s-setpw');return;}
-  if(hashPw(password)!==user.pwHash){errEl.classList.add('show');return;}
-  errEl.classList.remove('show');localStorage.setItem('lc_admin_session',username);enterAdmin(user);
-}
-function doAdminSetPw(){
-  const pw1=document.getElementById('apw1').value,pw2=document.getElementById('apw2').value;
-  const errEl=document.getElementById('apw-err');
-  if(pw1.length<6){errEl.textContent='Password must be at least 6 characters';errEl.classList.add('show');return;}
-  if(pw1!==pw2){errEl.textContent="Passwords don't match";errEl.classList.add('show');return;}
   errEl.classList.remove('show');
-  const username=localStorage.getItem('lc_admin_pending');
-  const users=getUsers();const user=users.find(u=>u.username===username);
-  if(user){user.pwHash=hashPw(pw1);user.forceReset=false;}
-  saveUsers(users);localStorage.removeItem('lc_admin_pending');localStorage.setItem('lc_admin_session',username);enterAdmin(user);
+  const{data,error}=await db.auth.signInWithPassword({email,password});
+  if(error){errEl.textContent='Invalid email or password';errEl.classList.add('show');return;}
+  const{data:profile}=await db.from('users').select('is_admin,username').eq('auth_uid',data.user.id).single();
+  if(!profile||!profile.is_admin){errEl.textContent='No admin access for this account';errEl.classList.add('show');await db.auth.signOut();return;}
+  errEl.classList.remove('show');
+  enterAdmin(profile);
 }
-function doAdminLogout(){localStorage.removeItem('lc_admin_session');showScreen('s-login');}
+
+async function doAdminLogout(){await db.auth.signOut();showScreen('s-login');}
 async function enterAdmin(user){
   showScreen('s-main');
   try{
@@ -326,18 +331,26 @@ async function addUser(){
   const username=document.getElementById('new-username').value.trim();
   const email=document.getElementById('new-email').value.trim();
   const isAdmin=document.getElementById('new-role').value==='admin';
-  if(!username){showToast('Username is required');return;}
-  const{error}=await db.from('users').insert({username,email,is_admin:isAdmin,assigned_rounds:'all',force_reset:true});
-  if(error){showToast('Error: '+error.message);return;}
-  document.getElementById('new-username').value='';document.getElementById('new-email').value='';
-  document.getElementById('add-user-form').classList.remove('open');
-  renderUsers();showToast('User "'+username+'" created — they will set their password on first login');
+  if(!username){showToast('Display name is required');return;}
+  if(!email){showToast('Email address is required');return;}
+  try{
+    await callEdgeFn('create',{email,username,is_admin:isAdmin,assigned_rounds:'all'});
+    document.getElementById('new-username').value='';
+    document.getElementById('new-email').value='';
+    document.getElementById('add-user-form').classList.remove('open');
+    renderUsers();
+    showToast('Invite sent to '+email);
+  }catch(e){showToast('Error: '+e.message);}
 }
 
 async function forceReset(username){
-  if(!confirm('Force password reset for "'+username+'"?'))return;
-  await db.from('users').update({force_reset:true,pw_hash:null}).eq('username',username);
-  renderUsers();showToast('Password reset forced');
+  if(!confirm('Send password reset email to "'+username+'"?'))return;
+  const{data}=await db.from('users').select('email').eq('username',username).single();
+  if(!data?.email){showToast('No email on file for this user');return;}
+  try{
+    await callEdgeFn('reset-password',{email:data.email});
+    showToast('Password reset email sent to '+data.email);
+  }catch(e){showToast('Error: '+e.message);}
 }
 
 async function makeAdmin(username){
@@ -353,9 +366,11 @@ async function removeAdmin(username){
 }
 
 async function deleteUser(username){
-  if(!confirm('Delete user "'+username+'"?'))return;
-  await db.from('users').delete().eq('username',username);
-  renderUsers();showToast('User deleted');
+  if(!confirm('Delete user "'+username+'"? This cannot be undone.'))return;
+  try{
+    await callEdgeFn('delete',{username});
+    renderUsers();showToast('User deleted');
+  }catch(e){showToast('Error: '+e.message);}
 }
 
 async function toggleRoundAssign(username,templateId){
