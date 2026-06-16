@@ -364,7 +364,6 @@ function rebuildActiveLog(){
 let ST={currentUser:null,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{},_photoTarget:null};
 
 function render(){
-  scrollToTop();
   const total=ST.active.length;if(!total){completeRound();return;}
   const lp=ST.active[ST.idx];
   document.getElementById('pfill').style.width=((ST.idx/total)*100)+'%';
@@ -394,7 +393,7 @@ function render(){
     inp.oninput=()=>{recordVal(lp.id,inp.value);checkLimits(lp,parseFloat(inp.value));};
     wrap.appendChild(inp);
     if(lp.unit){const u=document.createElement('span');u.className='num-unit';u.textContent=lp.unit;wrap.appendChild(u);}
-    ia.appendChild(wrap);setTimeout(()=>inp.focus(),80);
+    ia.appendChild(wrap);
     if(ST.vals[lp.id]!==undefined)checkLimits(lp,parseFloat(ST.vals[lp.id]));
   }
   updateLimitDisplay(lp,ST.vals[lp.id]);
@@ -407,6 +406,7 @@ function render(){
   const nn=document.getElementById('nav-n');
   nn.textContent=ST.idx===total-1?'End Round ✓':'Next';
   nn.className='nav-n'+(ST.idx===total-1?' done':'');
+  scrollToTop();
 }
 
 function pf(v){return v!==undefined&&v!==''?parseFloat(v):NaN;}
