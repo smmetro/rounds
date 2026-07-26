@@ -754,7 +754,6 @@ async function saveAll(){
   config.building=document.getElementById('cfg-building').value;
   saveConfig(config);
   localStorage.setItem('lc_alert_emails',JSON.stringify(config.alertEmails||[]));
-  localStorage.setItem('lc_eng',JSON.stringify(getUsers().map(u=>u.username)));
   document.getElementById('admin-building-sub').textContent=config.building||'Admin Panel';
   try{
     showToast('Publishing...');
