@@ -504,7 +504,10 @@ function renderTemplates(){
       </div>
       <div style="display:none;padding:16px" id="tmplbody-${tmpl.id}">
         <div id="secs-${tmpl.id}"></div>
-        <button class="add-sec-btn" onclick="addSection('${tmpl.id}')">+ Add Section</button>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button class="add-sec-btn" style="margin-top:0;flex:1" onclick="addSection('${tmpl.id}')">+ Add Section</button>
+          <button class="add-sec-btn" style="margin-top:0;flex:1;border-color:#93c5fd;color:#1d4ed8" onclick="addWeatherStationFields('${tmpl.id}')">+ Add Weather Station Fields</button>
+        </div>
       </div>`;
     container.appendChild(div);renderSections(tmpl.id);
   });
@@ -591,13 +594,14 @@ function renderLogs(tmplId,secName,secId){
     const typeKey=log.type==='status'?'status':log.cumulative?'cumulative':'numeric';
     const typeBadge=`<span class="type-badge type-${typeKey}">${typeKey}</span>`;
     const condBadge=log.condEnabled?`<span class="cond-badge">conditional</span>`:'';
+    const autoBadge=log.autoFill?`<span class="cond-badge" style="background:#dbeafe;color:#1d4ed8">auto-filled</span>`:'';
     let condDesc='';
     if(log.condEnabled&&log.condTrigger){const trigLog=(tmpl.logs||[]).find(l=>l.id===log.condTrigger);if(trigLog)condDesc=`<span style="font-size:10px;color:var(--txt2);margin-left:6px">if ${trigLog.name} = ${log.condValue}</span>`;}
     item.innerHTML=`
       <div class="log-item-hdr">
         <span class="drag-handle" title="Drag to reorder">⠿</span>
         <span class="log-item-name" onclick="toggleLogForm('${log.id}')">${log.name}</span>
-        ${typeBadge}${condBadge}${condDesc}
+        ${typeBadge}${condBadge}${autoBadge}${condDesc}
         <span class="log-item-meta">${log.unit||''}</span>
         <div class="item-controls">
           <button class="btn btn-secondary btn-sm" onclick="duplicateLog('${tmplId}','${log.id}')">Duplicate</button>
@@ -629,8 +633,12 @@ function buildLogForm(log,tmplId){
         <div class="field"><label>Data Type</label><select onchange="updateLogType('${tmplId}','${log.id}',this.value)"><option value="numeric" ${log.type!=='status'?'selected':''}>Numeric</option><option value="status" ${log.type==='status'?'selected':''}>Status (tap buttons)</option></select></div>
         <div class="field"><label>Cumulative?</label><select onchange="updateLog('${tmplId}','${log.id}','cumulative',this.value==='true')"><option value="false" ${!log.cumulative?'selected':''}>No — point-in-time</option><option value="true" ${log.cumulative?'selected':''}>Yes — running total</option></select></div>
       </div>
+      <div class="toggle-row" style="margin-top:4px">
+        <label class="toggle"><input type="checkbox" ${log.autoFill?'checked':''} onchange="toggleLogAutoFill('${tmplId}','${log.id}',this.checked)"><span class="toggle-slider"></span></label>
+        <span class="toggle-label">Auto-filled (e.g. weather) — never shown to the engineer, populated by code</span>
+      </div>
     </div>
-    ${log.type==='status'?`<div class="form-section"><div class="form-section-title">Status Options</div><div class="opts-list" id="opts_${log.id}">${optsHtml}</div><button class="add-opt-btn" style="margin-top:8px" onclick="addOpt('${tmplId}','${log.id}')">+ Add Option</button></div>`:`
+    ${log.autoFill?'':(log.type==='status'?`<div class="form-section"><div class="form-section-title">Status Options</div><div class="opts-list" id="opts_${log.id}">${optsHtml}</div><button class="add-opt-btn" style="margin-top:8px" onclick="addOpt('${tmplId}','${log.id}')">+ Add Option</button></div>`:`
     <div class="form-section">
       <div class="form-section-title">Limits & Alerts</div>
       <div class="hint">Warning limits highlight red and require Acknowledge. Alert limits also send email.</div>
@@ -640,8 +648,8 @@ function buildLogForm(log,tmplId){
         <div class="limit-field alert-limit"><label>Alert Low (email)</label><input type="number" value="${log.alertLo||''}" placeholder="—" onchange="updateLog('${tmplId}','${log.id}','alertLo',this.value)"></div>
         <div class="limit-field alert-limit"><label>Alert High (email)</label><input type="number" value="${log.alertHi||''}" placeholder="—" onchange="updateLog('${tmplId}','${log.id}','alertHi',this.value)"></div>
       </div>
-    </div>`}
-    <div class="form-section">
+    </div>`)}
+    ${log.autoFill?'':`<div class="form-section">
       <div class="form-section-title">Conditional Logic</div>
       <div class="toggle-row">
         <label class="toggle"><input type="checkbox" ${log.condEnabled?'checked':''} onchange="toggleLogCond('${tmplId}','${log.id}',this.checked)"><span class="toggle-slider"></span></label>
@@ -654,7 +662,7 @@ function buildLogForm(log,tmplId){
           <div class="field"><label>...equals</label><select id="condval_${log.id}" onchange="updateLog('${tmplId}','${log.id}','condValue',this.value)"><option value="">— Select value —</option>${valueOptions}</select></div>
         </div>
       </div>
-    </div>
+    </div>`}
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-success" onclick="saveLog('${tmplId}','${log.id}')">Save Changes</button>
       <button class="btn btn-secondary" onclick="toggleLogForm('${log.id}')">Cancel</button>
@@ -675,6 +683,31 @@ function updateOptLabel(tmplId,logId,i,val){config=getConfig();const tmpl=config
 function updateOptStyle(tmplId,logId,i,val){config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;const log=(tmpl.logs||[]).find(l=>l.id===logId);if(log){if(typeof log.opts[i]==='string')log.opts[i]={label:log.opts[i],style:val};else log.opts[i].style=val;}saveConfig(config);}
 function removeOpt(tmplId,logId,i){config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;const log=(tmpl.logs||[]).find(l=>l.id===logId);if(log)log.opts.splice(i,1);saveConfig(config);const secId='sec_'+tmplId+'_'+btoa(log.sec).replace(/=/g,'');renderLogs(tmplId,log.sec,secId);setTimeout(()=>document.getElementById('lform_'+logId).classList.add('open'),50);}
 function addOpt(tmplId,logId){config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;const log=(tmpl.logs||[]).find(l=>l.id===logId);if(log)log.opts.push({label:'New Option',style:''});saveConfig(config);const secId='sec_'+tmplId+'_'+btoa(log.sec).replace(/=/g,'');renderLogs(tmplId,log.sec,secId);setTimeout(()=>document.getElementById('lform_'+logId).classList.add('open'),50);}
+function toggleLogAutoFill(tmplId,logId,checked){config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;const log=(tmpl.logs||[]).find(l=>l.id===logId);if(log)log.autoFill=checked;saveConfig(config);const secId='sec_'+tmplId+'_'+btoa(log.sec).replace(/=/g,'');renderLogs(tmplId,log.sec,secId);setTimeout(()=>document.getElementById('lform_'+logId).classList.add('open'),50);}
+
+function addWeatherStationFields(tmplId){
+  config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;if(!tmpl.logs)tmpl.logs=[];
+  const existing=new Set(tmpl.logs.filter(l=>l.sec==='Weather Station').map(l=>l.id));
+  const fields=[
+    {id:'wx_drybulb',name:'Dry Bulb',unit:'°F'},
+    {id:'wx_dewpoint',name:'Dew Point',unit:'°F'},
+    {id:'wx_wetbulb',name:'Wet Bulb (Calc)',unit:'°F'},
+    {id:'wx_rh',name:'Relative Humidity',unit:'%'},
+    {id:'wx_sky',name:'Sky Conditions',unit:''},
+    {id:'wx_wind',name:'Wind Speed',unit:'mph'},
+    {id:'wx_station',name:'Station Used',unit:''},
+    {id:'wx_status',name:'Capture Status',unit:''}
+  ];
+  let added=0;
+  fields.forEach(f=>{
+    if(existing.has(f.id))return;
+    tmpl.logs.push({id:f.id,sec:'Weather Station',name:f.name,desc:'Auto-captured from NWS at round start',type:'numeric',unit:f.unit,cumulative:false,autoFill:true,opts:[],warnLo:'',warnHi:'',alertLo:'',alertHi:'',condEnabled:false,condTrigger:'',condValue:''});
+    added++;
+  });
+  saveConfig(config);renderSections(tmplId);
+  showToast(added?added+' Weather Station field(s) added — remember to Save & Publish':'Weather Station fields already present');
+}
+
 function toggleLogCond(tmplId,logId,checked){config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;const log=(tmpl.logs||[]).find(l=>l.id===logId);if(log)log.condEnabled=checked;saveConfig(config);const secId='sec_'+tmplId+'_'+btoa(log.sec).replace(/=/g,'');renderLogs(tmplId,log.sec,secId);setTimeout(()=>document.getElementById('lform_'+logId).classList.add('open'),50);}
 function updateCondTrigger(tmplId,logId,triggerId){
   config=getConfig();const tmpl=config.templates.find(t=>t.id===tmplId);if(!tmpl)return;

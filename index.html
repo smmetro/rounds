@@ -16,6 +16,13 @@
 const SUPA_URL='https://hczgckuggechzybulded.supabase.co';
 const SUPA_KEY='sb_publishable_vvyTcuHXfJN1hydx8OgJyQ_y1Q7FeIp';
 const db=supabase.createClient(SUPA_URL,SUPA_KEY);
+// Apps Script Web App URL — after redeploying SheetsSync.gs as a Web App, paste the
+// deployment URL here. Used only for late weather patches (see WX module below).
+const APPS_SCRIPT_WEBHOOK_URL='PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const NWS_PRIMARY_STATION='SFOC1';   // San Francisco Downtown
+const NWS_FALLBACK_STATION='KSFO';   // SF Airport — used only if primary keeps failing
+const WX_RETRY_MS=30000;             // retry every 30s
+const WX_CUTOFF_MS=17*60*1000;       // give up 17 min after round start
 (function(){
   const SIZE=512,c=document.createElement('canvas');c.width=c.height=SIZE;const ctx=c.getContext('2d');
   const R=SIZE*.22;ctx.beginPath();ctx.moveTo(R,0);ctx.lineTo(SIZE-R,0);ctx.quadraticCurveTo(SIZE,0,SIZE,R);ctx.lineTo(SIZE,SIZE-R);ctx.quadraticCurveTo(SIZE,SIZE,SIZE-R,SIZE);ctx.lineTo(R,SIZE);ctx.quadraticCurveTo(0,SIZE,0,SIZE-R);ctx.lineTo(0,R);ctx.quadraticCurveTo(0,0,R,0);ctx.closePath();ctx.fillStyle='#0f1117';ctx.fill();
@@ -342,11 +349,13 @@ function selectTemplate(tmpl){
   ST.active=buildActiveLog(tmpl,{});
   if(!ST.active.length){showToast('No log points in this round');return;}
   document.getElementById('tmpl-badge').textContent=tmpl.name;
+  startWeatherCapture(tmpl);
   render();goTo('log');
 }
 
 function buildActiveLog(tmpl,vals){
   return(tmpl.logs||[]).filter(lp=>{
+    if(lp.autoFill)return false; // weather-station style fields are never tapped through
     if(!lp.condEnabled||!lp.condTrigger||!lp.condValue)return true;
     const v=vals[lp.condTrigger];
     if(v===undefined||v===null||v==='')return false;
@@ -362,6 +371,131 @@ function rebuildActiveLog(){
 }
 
 let ST={currentUser:null,selectedTemplate:null,active:[],idx:0,vals:{},notes:{},photos:{},rid:null,t0:null,editMap:{},acknowledged:{},_photoTarget:null};
+
+// ============================================================
+// WEATHER STATION — live capture at round start, quiet retry
+// ============================================================
+// Fields expected in template config, sec:'Weather Station', autoFill:true:
+//   wx_drybulb, wx_dewpoint, wx_wetbulb, wx_rh, wx_sky, wx_wind, wx_station, wx_status
+// These never appear in the tap-through flow (filtered out in buildActiveLog).
+// They ride along in the round's `entries` because completeRound() reads
+// data.vals for EVERY log point in the template, not just the active ones.
+
+let WX={active:false,resolved:false,startedAt:0,timer:null,tmplId:null,submitted:false,submittedRid:null};
+
+function hasWeatherFields(tmpl){return(tmpl.logs||[]).some(l=>l.sec==='Weather Station'&&l.autoFill);}
+
+function startWeatherCapture(tmpl){
+  if(WX.timer){clearInterval(WX.timer);WX.timer=null;}
+  if(!hasWeatherFields(tmpl)){WX={active:false,resolved:false,startedAt:0,timer:null,tmplId:null,submitted:false,submittedRid:null};return;}
+  WX={active:true,resolved:false,startedAt:Date.now(),timer:null,tmplId:tmpl.id,submitted:false,submittedRid:null};
+  attemptWeatherFetch();
+  WX.timer=setInterval(attemptWeatherFetch,WX_RETRY_MS);
+}
+
+async function fetchStation(id){
+  const res=await fetch('https://api.weather.gov/stations/'+id+'/observations/latest',{headers:{'Accept':'application/geo+json'}});
+  if(!res.ok)throw new Error('HTTP '+res.status);
+  const j=await res.json();
+  const p=j.properties;
+  if(p.temperature.value===null||p.temperature.value===undefined)throw new Error('No temp reading');
+  return{
+    tC:p.temperature.value,
+    dewC:p.dewpoint&&p.dewpoint.value,
+    rh:p.relativeHumidity&&p.relativeHumidity.value,
+    windKmh:p.windSpeed&&p.windSpeed.value,
+    sky:p.textDescription||''
+  };
+}
+
+function cToF(c){return c*9/5+32;}
+function kmhToMph(k){return k*0.621371;}
+
+// Stull (2011) wet-bulb approximation — accurate to ~0.3°F in normal ranges. Inputs in °C/%.
+function wetBulbC(tC,rh){
+  return tC*Math.atan(0.151977*Math.sqrt(rh+8.313659))
+    +Math.atan(tC+rh)-Math.atan(rh-1.676331)
+    +0.00391838*Math.pow(rh,1.5)*Math.atan(0.023101*rh)-4.686035;
+}
+
+async function attemptWeatherFetch(){
+  if(!WX.active||WX.resolved)return;
+  const elapsed=Date.now()-WX.startedAt;
+  if(elapsed>WX_CUTOFF_MS){finalizeWeatherFailure();return;}
+  let obs=null,sourceLabel='';
+  try{obs=await fetchStation(NWS_PRIMARY_STATION);sourceLabel='NWS SFOC1 (Downtown)';}
+  catch(e1){
+    try{obs=await fetchStation(NWS_FALLBACK_STATION);sourceLabel='Fallback: NWS KSFO';}
+    catch(e2){return;} // both failed this cycle — silently wait for next interval
+  }
+  if(obs.tC===undefined||obs.tC===null)return;
+  const rh=obs.rh!==null&&obs.rh!==undefined?obs.rh:null;
+  const values={
+    wx_drybulb:Math.round(cToF(obs.tC)*10)/10,
+    wx_dewpoint:obs.dewC!=null?Math.round(cToF(obs.dewC)*10)/10:'',
+    wx_wetbulb:rh!=null?Math.round(cToF(wetBulbC(obs.tC,rh))*10)/10:'',
+    wx_rh:rh!=null?Math.round(rh):'',
+    wx_sky:obs.sky||'',
+    wx_wind:obs.windKmh!=null?Math.round(kmhToMph(obs.windKmh)*10)/10:'',
+    wx_station:sourceLabel,
+    wx_status:'OK ('+(sourceLabel.startsWith('Fallback')?'Fallback':'Live')+')'
+  };
+  WX.resolved=true;
+  if(WX.timer){clearInterval(WX.timer);WX.timer=null;}
+  if(!WX.submitted){
+    Object.keys(values).forEach(k=>{ST.vals[k]=values[k];});
+  }else{
+    await patchWeatherLate(WX.submittedRid,values);
+  }
+}
+
+function finalizeWeatherFailure(){
+  if(WX.resolved)return;
+  WX.resolved=true;
+  if(WX.timer){clearInterval(WX.timer);WX.timer=null;}
+  const values={wx_drybulb:'',wx_dewpoint:'',wx_wetbulb:'',wx_rh:'',wx_sky:'',wx_wind:'',wx_station:'',wx_status:'Failed - Timeout'};
+  if(!WX.submitted){
+    Object.keys(values).forEach(k=>{ST.vals[k]=values[k];});
+  }else{
+    patchWeatherLate(WX.submittedRid,values);
+  }
+}
+
+// Builds the same entries[] shape syncRound() sends to Supabase, reused so a late
+// weather resolution can patch just those fields into an already-synced round.
+function buildEntries(tmpl,vals,notes,photos){
+  return(tmpl.logs||[]).map(lp=>({
+    name:lp.name,
+    sec:lp.sec||'General',
+    value:vals[lp.id]!==undefined?vals[lp.id]:'',
+    unit:lp.unit||'',
+    notes:(notes&&notes[lp.id])||'',
+    hasPhoto:!!(photos&&photos[lp.id]&&photos[lp.id].length),
+    photoCount:(photos&&photos[lp.id]||[]).length
+  }));
+}
+
+async function patchWeatherLate(rid,values){
+  try{
+    const tmpl=ST.selectedTemplate;if(!tmpl)return;
+    // Pull the row we just inserted so we patch full entries, not a partial array
+    const{data:rows,error:fetchErr}=await db.from('rounds').select('entries').eq('id',rid).single();
+    if(fetchErr||!rows)throw new Error(fetchErr?fetchErr.message:'Round not found');
+    const entries=rows.entries||[];
+    Object.keys(values).forEach(fieldId=>{
+      const lp=(tmpl.logs||[]).find(l=>l.id===fieldId);if(!lp)return;
+      const row=entries.find(e=>e.name===lp.name&&e.sec===lp.sec);
+      if(row)row.value=values[fieldId];
+    });
+    const{error:updErr}=await db.from('rounds').update({entries}).eq('id',rid);
+    if(updErr)throw new Error(updErr.message);
+    // Supabase webhook only fires on INSERT, so tell the sheet directly to update this row
+    if(APPS_SCRIPT_WEBHOOK_URL&&APPS_SCRIPT_WEBHOOK_URL.indexOf('PASTE_')!==0){
+      fetch(APPS_SCRIPT_WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'weather_update',id:rid,entries})}).catch(()=>{});
+    }
+  }catch(e){console.error('Late weather patch failed:',e);}
+}
 
 function render(){
   const total=ST.active.length;if(!total){completeRound();return;}
@@ -503,6 +637,7 @@ function completeRound(){
   const alerts=JSON.parse(localStorage.getItem('lc_alerts')||'[]').filter(a=>a.rid===ST.rid);
   const data={rid:ST.rid,eng:ST.currentUser,t0:ST.t0,t1:new Date().toISOString(),day:new Date().toDateString(),templateId:tmpl.id,templateName:tmpl.name,sheetTab:tmpl.sheetTab||tmpl.name,building:cfg.building||'Rounds',vals:ST.vals,notes:ST.notes,photos:ST.photos,editMap:ST.editMap,alerts,synced:false};
   const h=JSON.parse(localStorage.getItem('lc_history')||'[]');h.unshift(data);localStorage.setItem('lc_history',JSON.stringify(h.slice(0,200)));
+  if(WX.active&&!WX.resolved){WX.submitted=true;WX.submittedRid=ST.rid;} // weather still pending — patch it in later
   goTo('done');
   const logged=Object.keys(ST.vals).length;
   document.getElementById('done-sum').textContent=logged+' readings by '+ST.currentUser+(alerts.length?' · '+alerts.length+' alert'+(alerts.length>1?'s':''):'');
@@ -512,15 +647,7 @@ function completeRound(){
 async function syncRound(data,el){
   el.textContent='Syncing...';
   try{
-    const entries=(ST.selectedTemplate.logs||[]).map(lp=>({
-      name:lp.name,
-      sec:lp.sec||'General',
-      value:data.vals[lp.id]!==undefined?data.vals[lp.id]:'',
-      unit:lp.unit||'',
-      notes:data.notes[lp.id]||'',
-      hasPhoto:!!(data.photos[lp.id]&&data.photos[lp.id].length),
-      photoCount:(data.photos[lp.id]||[]).length
-    }));
+    const entries=buildEntries(ST.selectedTemplate,data.vals,data.notes,data.photos);
     const{error}=await db.from('rounds').insert({
       id:data.rid,
       template_name:data.templateName,
