@@ -18,7 +18,7 @@ const SUPA_KEY='sb_publishable_vvyTcuHXfJN1hydx8OgJyQ_y1Q7FeIp';
 const db=supabase.createClient(SUPA_URL,SUPA_KEY);
 // Apps Script Web App URL — after redeploying SheetsSync.gs as a Web App, paste the
 // deployment URL here. Used only for late weather patches (see WX module below).
-const APPS_SCRIPT_WEBHOOK_URL='PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const APPS_SCRIPT_WEBHOOK_URL='https://script.google.com/macros/s/AKfycbxl0UDjZRpXNwDSeWnMLaLMlehBHSXDljIjcCCVbRxlSu_jMC1f-20ocW-DsiSOEWfM/exec';
 const NWS_PRIMARY_STATION='SFOC1';   // San Francisco Downtown
 const NWS_FALLBACK_STATION='KSFO';   // SF Airport — used only if primary keeps failing
 const WX_RETRY_MS=30000;             // retry every 30s
